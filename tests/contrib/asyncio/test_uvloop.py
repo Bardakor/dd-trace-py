@@ -9,6 +9,7 @@ import pytest
 from ddtrace.contrib.internal.asyncio.patch import patch
 from ddtrace.contrib.internal.asyncio.patch import unpatch
 from ddtrace.internal import core
+from ddtrace.internal.context_watcher import is_context_watcher_registered
 from ddtrace.trace import Span
 
 
@@ -23,9 +24,9 @@ _PATCHED_METHODS = {
     "add_signal_handler",
     "run_forever",
 }
-_CONTEXT_WATCHER_AVAILABLE = sys.implementation.name == "cpython" and sys.version_info >= (3, 14)
+_CONTEXT_WATCHER_AVAILABLE = is_context_watcher_registered()
 _requires_context_switch_instrumentation = pytest.mark.skipif(
-    _CONTEXT_WATCHER_AVAILABLE, reason="CPython 3.14+ uses the native context watcher"
+    _CONTEXT_WATCHER_AVAILABLE, reason="the native context watcher is active"
 )
 
 
@@ -54,12 +55,11 @@ def _captured_context(tracer, active):
 @pytest.mark.skipif(find_spec("uvloop") is None, reason="uvloop is not installed")
 @pytest.mark.subprocess()
 def test_uvloop_patched_on_import():
-    import sys
-
     from ddtrace.contrib.internal.asyncio.patch import patch
     from ddtrace.contrib.internal.asyncio.patch import unpatch
+    from ddtrace.internal.context_watcher import is_context_watcher_registered
 
-    context_watcher_available = sys.implementation.name == "cpython" and sys.version_info >= (3, 14)
+    context_watcher_available = is_context_watcher_registered()
     patch()
 
     import uvloop
@@ -268,6 +268,42 @@ def test_uvloop_eager_task_events_restore_caller(tracer, patched_uvloop):
 
     for event_index, expected in observed:
         assert switches[event_index : event_index + 2] == [expected, caller]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="explicit task contexts require Python 3.11+")
+@_requires_context_switch_instrumentation
+def test_uvloop_non_eager_factory_keeps_caller_context(tracer, patched_uvloop):
+    loop = patched_uvloop.new_event_loop()
+    task_span = Span("task")
+    caller = Span("caller")
+    context = _captured_context(tracer, task_span)
+    switches = []
+    observed = []
+
+    async def worker():
+        return "done"
+
+    def record_context_switch():
+        switches.append(tracer.context_provider.active())
+
+    def task_factory(loop, coro, **kwargs):
+        observed.append((tracer.context_provider.active(), switches[-1]))
+        return asyncio.Task(coro, loop=loop, **kwargs)
+
+    core.on("python.context.switch", record_context_switch)
+    try:
+        loop.set_task_factory(task_factory)
+        tracer.context_provider.activate(caller)
+        core.dispatch("python.context.switch")
+        task = loop.create_task(worker(), context=context)
+        assert observed == [(caller, caller)]
+        assert loop.run_until_complete(task) == "done"
+    finally:
+        core.reset_listeners("python.context.switch", record_context_switch)
+        loop.close()
+        task_span.finish()
+        caller.finish()
+        tracer.context_provider.activate(None)
 
 
 @pytest.mark.skipif(

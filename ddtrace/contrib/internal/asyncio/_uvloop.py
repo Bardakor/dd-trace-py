@@ -14,15 +14,18 @@ import contextvars
 import functools
 from types import ModuleType
 from typing import Any
+from typing import Awaitable
 from typing import Callable
+from typing import cast
 
 from ddtrace.contrib.internal.trace_utils import wrap
 from ddtrace.internal import core
+from ddtrace.internal.constants import PYTHON_CONTEXT_SWITCH_EVENT
+from ddtrace.internal.context_watcher import _await_with_context_switch
 from ddtrace.internal.utils import get_argument_value
 from ddtrace.internal.utils import set_argument_value
 
 
-_CONTEXT_SWITCH_EVENT = "python.context.switch"
 _RUN_CONTEXT_ATTRIBUTE = "_datadog_context_switch_run_context"
 # Position and keyword of the callback argument of each scheduling method.
 _CALLBACK_ARGUMENT = {
@@ -40,23 +43,23 @@ def _wrap_callback(loop: Any, callback: Callable[..., Any]) -> Callable[..., Any
     @functools.wraps(callback)
     def trampoline(*args: Any) -> Any:
         try:
-            core.dispatch(_CONTEXT_SWITCH_EVENT)
+            core.dispatch(PYTHON_CONTEXT_SWITCH_EVENT)
             return callback(*args)
         finally:
             # Emit from the Context uvloop restores once the callback returns, which
             # is the one the loop was started in.
             run_context = getattr(loop, _RUN_CONTEXT_ATTRIBUTE, None)
             if run_context is None:
-                core.dispatch(_CONTEXT_SWITCH_EVENT)
+                core.dispatch(PYTHON_CONTEXT_SWITCH_EVENT)
             else:
-                run_context.run(core.dispatch, _CONTEXT_SWITCH_EVENT)
+                run_context.run(core.dispatch, PYTHON_CONTEXT_SWITCH_EVENT)
 
     return trampoline
 
 
 def _callback_scheduler(pos: int, kw: str) -> Callable[..., Any]:
     def schedule(wrapped: Callable[..., Any], loop: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
-        if not core.has_listeners(_CONTEXT_SWITCH_EVENT):
+        if not core.has_listeners(PYTHON_CONTEXT_SWITCH_EVENT):
             return wrapped(*args, **kwargs)
 
         callback = get_argument_value(args, kwargs, pos, kw, optional=True)
@@ -75,24 +78,15 @@ def _wrapped_create_task(wrapped: Callable[..., Any], loop: Any, args: tuple[Any
     wrapper, but a custom factory may run the coroutine eagerly before
     ``create_task`` returns.
     """
-    if not core.has_listeners(_CONTEXT_SWITCH_EVENT) or loop.get_task_factory() is None:
+    if not core.has_listeners(PYTHON_CONTEXT_SWITCH_EVENT) or loop.get_task_factory() is None:
         return wrapped(*args, **kwargs)
 
-    # An explicit empty Context is falsy, so compare against None.
-    context = kwargs.get("context")
-    if context is None:
-        context = contextvars.copy_context()
-
-    try:
-        context.run(core.dispatch, _CONTEXT_SWITCH_EVENT)
-    except RuntimeError:
-        # The caller is already running inside that Context, so the value the task
-        # will see is the one active here.
-        core.dispatch(_CONTEXT_SWITCH_EVENT)
+    coro = cast(Awaitable[Any], get_argument_value(args, kwargs, 0, "coro"))
+    args, kwargs = set_argument_value(args, kwargs, 0, "coro", _await_with_context_switch(coro))
     try:
         return wrapped(*args, **kwargs)
     finally:
-        core.dispatch(_CONTEXT_SWITCH_EVENT)
+        core.dispatch(PYTHON_CONTEXT_SWITCH_EVENT)
 
 
 def _wrapped_run_forever(wrapped: Callable[..., Any], loop: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
@@ -105,7 +99,7 @@ def _wrapped_run_forever(wrapped: Callable[..., Any], loop: Any, args: tuple[Any
         return wrapped(*args, **kwargs)
     finally:
         delattr(loop, _RUN_CONTEXT_ATTRIBUTE)
-        core.dispatch(_CONTEXT_SWITCH_EVENT)
+        core.dispatch(PYTHON_CONTEXT_SWITCH_EVENT)
 
 
 def patch(module: ModuleType) -> None:

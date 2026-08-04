@@ -4,6 +4,7 @@ import gevent
 
 from ddtrace._trace.provider import _DD_CONTEXTVAR
 from ddtrace.internal import core
+from ddtrace.internal.constants import PYTHON_CONTEXT_SWITCH_EVENT
 
 
 GEVENT_VERSION = gevent.version_info[0:3]
@@ -13,7 +14,7 @@ def _context_switch_trace(event: str, args: Any) -> None:
     # Greenlet swaps thread-state contexts directly, bypassing CPython's
     # context watcher even on Python 3.14+.
     if event in {"switch", "throw"}:
-        core.dispatch("python.context.switch")
+        core.dispatch(PYTHON_CONTEXT_SWITCH_EVENT)
 
 
 class TracingMixin(object):

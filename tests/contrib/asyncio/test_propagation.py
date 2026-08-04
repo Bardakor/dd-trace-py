@@ -1,5 +1,6 @@
 import asyncio
-import sys
+import contextvars
+import threading
 import time
 
 import pytest
@@ -8,13 +9,16 @@ from ddtrace._trace.provider import DefaultContextProvider
 from ddtrace.contrib.internal.asyncio.patch import patch
 from ddtrace.contrib.internal.asyncio.patch import unpatch
 from ddtrace.internal import core
+from ddtrace.internal.context_watcher import is_context_watcher_registered
 from ddtrace.internal.wrapping import is_wrapped
 from ddtrace.trace import Context
+from ddtrace.trace import Span
 
 
 _orig_create_task = asyncio.BaseEventLoop.create_task
 _orig_handle_run = asyncio.Handle._run
-_CONTEXT_WATCHER_AVAILABLE = sys.implementation.name == "cpython" and sys.version_info >= (3, 14)
+_orig_to_thread = asyncio.to_thread
+_CONTEXT_WATCHER_AVAILABLE = is_context_watcher_registered()
 
 
 @pytest.fixture
@@ -33,6 +37,7 @@ def test_event_loop_unpatch(tracer):
     assert isinstance(tracer.context_provider, DefaultContextProvider)
     assert asyncio.BaseEventLoop.create_task == _orig_create_task
     assert asyncio.Handle._run == _orig_handle_run
+    assert asyncio.to_thread == _orig_to_thread
 
 
 def test_context_switch_instrumentation(tracer):
@@ -40,8 +45,40 @@ def test_context_switch_instrumentation(tracer):
     patch()
     try:
         assert is_wrapped(asyncio.Handle._run) is not _CONTEXT_WATCHER_AVAILABLE
+        assert is_wrapped(asyncio.to_thread) is not _CONTEXT_WATCHER_AVAILABLE
     finally:
         unpatch()
+
+
+@pytest.mark.skipif(not hasattr(asyncio, "eager_task_factory"), reason="eager tasks require Python 3.12+")
+@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="the native context watcher is active")
+@pytest.mark.asyncio
+async def test_eager_task_factory_publishes_inline_context(tracer, patched_asyncio):
+    loop = asyncio.get_running_loop()
+    span = Span("eager")
+    tracer.context_provider.activate(span)
+    context = contextvars.copy_context()
+    tracer.context_provider.activate(None)
+    switches = []
+
+    def record_context_switch():
+        switches.append(tracer.context_provider.active())
+
+    async def eager():
+        assert switches[-1] is span
+        return "done"
+
+    core.on("python.context.switch", record_context_switch)
+    try:
+        loop.set_task_factory(getattr(asyncio, "eager_task_factory"))
+        assert loop.create_task(eager(), context=context).result() == "done"
+    finally:
+        loop.set_task_factory(None)
+        core.reset_listeners("python.context.switch", record_context_switch)
+        span.finish()
+        tracer.context_provider.activate(None)
+
+    assert switches[-1] is None
 
 
 @pytest.mark.asyncio
@@ -141,7 +178,7 @@ async def test_propagation_with_new_context(tracer, test_spans):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="CPython 3.14+ uses the native context watcher")
+@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="the native context watcher is active")
 async def test_context_switch_events_track_task_switches(tracer, patched_asyncio):
     first_started = asyncio.Event()
     resume_first = asyncio.Event()
@@ -181,7 +218,31 @@ async def test_context_switch_events_track_task_switches(tracer, patched_asyncio
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="CPython 3.14+ uses the native context watcher")
+@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="the native context watcher is active")
+async def test_to_thread_context_switch_events(tracer, patched_asyncio):
+    switches = []
+    worker_id = None
+
+    def record_context_switch():
+        switches.append((threading.get_ident(), tracer.context_provider.active()))
+
+    def worker():
+        nonlocal worker_id
+        worker_id = threading.get_ident()
+
+    core.on("python.context.switch", record_context_switch)
+    try:
+        with tracer.trace("parent") as parent:
+            await asyncio.to_thread(worker)
+    finally:
+        core.reset_listeners("python.context.switch", record_context_switch)
+
+    assert worker_id is not None
+    assert [context for ident, context in switches if ident == worker_id] == [parent, None]
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(_CONTEXT_WATCHER_AVAILABLE, reason="the native context watcher is active")
 async def test_context_switch_event_skips_finished_span(tracer, patched_asyncio):
     loop = asyncio.get_running_loop()
     callback_finished = loop.create_future()

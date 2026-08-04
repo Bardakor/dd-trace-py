@@ -1,19 +1,27 @@
+import asyncio
 import concurrent.futures
 from contextvars import Context
 import ctypes
 import os
 import sys
 import threading
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ddtrace._trace.provider import DefaultContextProvider
 from ddtrace._trace.tracer import Tracer
+from ddtrace.contrib.internal.asyncio.patch import patch as patch_asyncio
+from ddtrace.contrib.internal.asyncio.patch import unpatch as unpatch_asyncio
 from ddtrace.internal import core
 from ddtrace.internal.opentelemetry.thread_context import register_otel_thread_context_listener
 
 
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="OTel thread context is only published on Linux")
+
+
+if TYPE_CHECKING:
+    from ddtrace.internal.native._native import detach_otel_thread_context  # type: ignore[attr-defined]
 
 
 if sys.platform == "linux":
@@ -117,6 +125,27 @@ def test_python_context_switch_syncs_active_span(tracer: Tracer):
 
         core.dispatch("python.context.switch")
         assert _published_span_id() == span.span_id
+
+
+def test_asyncio_to_thread_syncs_active_span(tracer: Tracer):
+    was_patched = getattr(asyncio, "_datadog_patch", False)
+    patch_asyncio()
+
+    async def run_in_worker():
+        with tracer.trace("test") as span:
+            span_id = span.span_id
+            published_span_id = await asyncio.to_thread(_published_span_id)
+        detached_span_id = await asyncio.to_thread(_published_span_id)
+        return span_id, published_span_id, detached_span_id
+
+    try:
+        span_id, published_span_id, detached_span_id = asyncio.run(run_in_worker())
+    finally:
+        if not was_patched:
+            unpatch_asyncio()
+
+    assert published_span_id == span_id
+    assert detached_span_id is None
 
 
 def test_span_context_is_reactivated_after_fork(tracer: Tracer):
