@@ -264,7 +264,7 @@ Sampler::capture_samples(const microsecond_t wall_time_us)
     // sample the selected threads. This caps the O(n_threads) stack-unwinding cost.
     if (max_threads_per_sample == 0) {
         for_each_interp(runtime, [&](InterpreterInfo& interp) -> void {
-            PyObject* gc_frame = gc_enabled_ ? GCFrameTracker::get().capture(interp.interp_addr) : nullptr;
+            PyObject* gc_frame = gc_enabled_ ? GCFrameTracker::get().capture(interp.interp) : nullptr;
             for_each_thread(*echion, interp, [&](PyThreadState* tstate, ThreadInfo& thread) {
                 auto success = thread.sample(*echion, tstate, wall_time_us, gc_frame);
                 if (success) {
@@ -276,7 +276,7 @@ Sampler::capture_samples(const microsecond_t wall_time_us)
         thread_candidates.clear();
 
         for_each_interp(runtime, [&](InterpreterInfo& interp) -> void {
-            PyObject* gc_frame = gc_enabled_ ? GCFrameTracker::get().capture(interp.interp_addr) : nullptr;
+            PyObject* gc_frame = gc_enabled_ ? GCFrameTracker::get().capture(interp.interp) : nullptr;
             for_each_thread(*echion, interp, [&](PyThreadState* tstate, ThreadInfo& /*thread*/) {
                 thread_candidates.push_back({ *tstate, gc_frame });
             });

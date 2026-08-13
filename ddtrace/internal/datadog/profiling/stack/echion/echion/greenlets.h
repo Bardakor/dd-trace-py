@@ -41,7 +41,7 @@ class GreenletInfo
     {
     }
 
-    void unwind(EchionSampler& echion, PyObject*, PyThreadState*, FrameStack&, PyObject* gc_frame = nullptr);
+    void unwind(EchionSampler& echion, PyObject*, PyThreadState*, FrameStack&, PyObject* gc_frame);
 };
 
 // Lightweight snapshot of a greenlet's state for unwinding outside the lock.

@@ -60,8 +60,8 @@ class ThreadInfo
 
     [[nodiscard]] Result<void> update_cpu_time();
 
-    [[nodiscard]] Result<void> sample(EchionSampler&, PyThreadState*, microsecond_t, PyObject* gc_frame = nullptr);
-    void unwind(EchionSampler&, PyThreadState*, PyObject* gc_frame = nullptr);
+    [[nodiscard]] Result<void> sample(EchionSampler&, PyThreadState*, microsecond_t, PyObject* gc_frame);
+    void unwind(EchionSampler&, PyThreadState*, PyObject* gc_frame);
 
     // ------------------------------------------------------------------------
 #if defined PL_LINUX

@@ -695,7 +695,8 @@ ThreadInfo::unwind_greenlets(EchionSampler& echion,
 
         for (auto& [parent_name, parent_frame] : snap.parent_chain) {
             GreenletInfo parent_temp(0, parent_frame, parent_name);
-            parent_temp.unwind(echion, parent_frame, tstate, stack);
+            // No GC marker: only the running greenlet can hold the on-CPU frame.
+            parent_temp.unwind(echion, parent_frame, tstate, stack, nullptr);
         }
 
         current_greenlets.push_back(std::move(stack_info));
