@@ -15,7 +15,8 @@ else:
 
 def shutdown(request):
     # Endpoint used to flush traces to the agent when doing snapshots.
-    tracer.shutdown()
+    # Bounded: the default waits forever, and under gevent the flush can block the writer's hub.
+    tracer.shutdown(timeout=5)
     return HttpResponse(status=200)
 
 
