@@ -55,6 +55,12 @@ from urllib.request import urlretrieve
 
 HERE = Path(__file__).resolve().parent
 
+sys.path.insert(0, str(HERE / "scripts"))
+from compute_version import resolve_version  # noqa: E402
+
+
+DDTRACE_VERSION = resolve_version(HERE)
+
 CURRENT_OS = platform.system()
 
 # What's meant by each build mode is similar to that from CMake, except that
@@ -1901,6 +1907,7 @@ print(f"INFO: building package '{PACKAGE_NAME}'")
 interpose_sccache()
 setup(
     name="ddtrace",
+    version=DDTRACE_VERSION,
     packages=find_packages(
         exclude=[
             "tests*",
