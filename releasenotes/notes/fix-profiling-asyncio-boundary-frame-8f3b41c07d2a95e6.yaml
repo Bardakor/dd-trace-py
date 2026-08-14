@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    profiling: Fixes an issue where asyncio task samples could be reported with the coroutine
+    frames at the top of the stack and the calling frames duplicated underneath them, making
+    the flame graph unusable for the affected process. This was most likely to happen with
+    ``uvloop``.
