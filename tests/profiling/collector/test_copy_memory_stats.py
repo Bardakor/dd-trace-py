@@ -10,13 +10,13 @@ import pytest
 )
 def test_copy_memory_error_count_present():
     """copy_memory_error_count is always emitted (even when 0) and is non-negative."""
-    import glob
     import json
     import os
     import time
 
     from ddtrace.profiling import profiler
     from ddtrace.trace import tracer
+    from tests.profiling.collector import pprof_utils
 
     p = profiler.Profiler(tracer=tracer)
     p.start()
@@ -24,7 +24,7 @@ def test_copy_memory_error_count_present():
     p.stop()
 
     output_filename = os.environ["DD_PROFILING_OUTPUT_PPROF"] + "." + str(os.getpid())
-    files = sorted(glob.glob(output_filename + ".*.internal_metadata.json"))
+    files = pprof_utils.get_internal_metadata_files(output_filename)
     assert files, "Expected at least one internal_metadata.json file"
 
     for f in files:
@@ -51,25 +51,21 @@ def test_copy_memory_error_count_present():
 )
 def test_fast_copy_memory_disabled():
     """fast_copy_memory_enabled is False when _DD_PROFILING_STACK_FAST_COPY=false."""
-    import glob
     import json
     import os
     import time
 
     from ddtrace.profiling import profiler
     from ddtrace.trace import tracer
+    from tests.profiling.collector import pprof_utils
 
     p = profiler.Profiler(tracer=tracer)
     p.start()
     time.sleep(3)
     p.stop()
 
-    def upload_seq(path: str) -> int:
-        # Uploads are numbered without padding, so sort numerically rather than lexicographically.
-        return int(path[: -len(".internal_metadata.json")].rsplit(".", 1)[1])
-
     output_filename = os.environ["DD_PROFILING_OUTPUT_PPROF"] + "." + str(os.getpid())
-    files = sorted(glob.glob(output_filename + ".*.internal_metadata.json"), key=upload_seq)
+    files = pprof_utils.get_internal_metadata_files(output_filename)
     assert files, "Expected at least one internal_metadata.json file"
 
     for i, f in enumerate(files):
@@ -95,7 +91,6 @@ def test_fast_copy_memory_disabled():
 )
 def test_fast_copy_memory_enabled() -> None:
     """Sampler runs on the syscall copy during warmup, then upgrades to safe_memcpy (PROF-14568)."""
-    import glob
     import json
     import os
     import time
@@ -104,6 +99,7 @@ def test_fast_copy_memory_enabled() -> None:
     from ddtrace.internal.datadog.profiling.stack import _stack
     from ddtrace.profiling import profiler
     from ddtrace.trace import tracer
+    from tests.profiling.collector import pprof_utils
 
     _stack._set_fast_copy_warmup_seconds(1.0)
 
@@ -134,12 +130,8 @@ def test_fast_copy_memory_enabled() -> None:
     time.sleep(2)
     p.stop()
 
-    def upload_seq(path: str) -> int:
-        # Uploads are numbered without padding, so sort numerically rather than lexicographically.
-        return int(path[: -len(".internal_metadata.json")].rsplit(".", 1)[1])
-
     output_filename = os.environ["DD_PROFILING_OUTPUT_PPROF"] + "." + str(os.getpid())
-    files = sorted(glob.glob(output_filename + ".*.internal_metadata.json"), key=upload_seq)
+    files = pprof_utils.get_internal_metadata_files(output_filename)
     assert files, "Expected at least one internal_metadata.json file"
 
     # A window with no completed sampling cycle inherits the previous window's fast-copy
