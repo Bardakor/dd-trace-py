@@ -337,8 +337,7 @@ def iast_code_injection_vulnerability():
 
 @app.route("/shutdown", methods=["GET"])
 def shutdown_view():
-    # Below the caller's 10s timeout, so the flush gives up before the request does.
-    tracer.shutdown(timeout=5)
+    tracer.shutdown(timeout=10)
     sys.exit(0)
 
 
