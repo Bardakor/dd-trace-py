@@ -1,0 +1,123 @@
+[envs.tracer]
+installer = "uv"
+python-sources = ["external"]
+dependencies = [
+  "attrs",
+  "boto3",
+  "coverage",
+  "fastapi",
+  "freezegun",
+  "httpretty",
+  "httpx<0.28.0",
+  "hypothesis<6.45.1",
+  "mock",
+  "msgpack",
+  "opentracing",
+  "pytest",
+  "pytest-cov",
+  "pytest-mock",
+  "pytest-randomly",
+  "setuptools",
+  "structlog",
+  "wheel",
+]
+
+[envs.tracer.env-vars]
+_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER = "1"
+DD_TESTING_RAISE = "1"
+DD_TRACE_AGENT_URL = "http://localhost:8126"
+DD_REMOTE_CONFIGURATION_ENABLED = "false"
+DD_INJECTION_ENABLED = "1"
+DD_INJECT_FORCE = "1"
+DD_PATCH_MODULES = "unittest:false"
+CMAKE_BUILD_PARALLEL_LEVEL = "12"
+CARGO_BUILD_JOBS = "12"
+DD_TRACE_COMPUTE_STATS = "false"
+DD_CODE_ORIGIN_FOR_SPANS_ENABLED = "false"
+DD_CIVISIBILITY_BACKEND_API_TIMEOUT_MILLIS = "2000"
+_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED = "1"
+DD_CIVISIBILITY_LOG_LEVEL = "none"
+DD_INSTRUMENTATION_TELEMETRY_ENABLED = "0"
+_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS = "50"
+DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED = "{env:NIGHTLY_BUILD:false}"
+PYTHONPATH = "{root}"
+
+[envs.tracer.scripts]
+test = "pytest -v {args} --ignore=tests/tracer/test_uwsgi_shutdown.py tests/tracer/"
+collect = "pytest --collect-only -q {args} --ignore=tests/tracer/test_uwsgi_shutdown.py tests/tracer/"
+
+[[envs.tracer.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[envs.tracer-128-bit-traceid-disabled]
+template = "tracer"
+python = "3.14"
+
+[envs.tracer-128-bit-traceid-disabled.env-vars]
+_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER = "1"
+DD_TESTING_RAISE = "1"
+DD_TRACE_AGENT_URL = "http://localhost:8126"
+DD_REMOTE_CONFIGURATION_ENABLED = "false"
+DD_INJECTION_ENABLED = "1"
+DD_INJECT_FORCE = "1"
+DD_PATCH_MODULES = "unittest:false"
+CMAKE_BUILD_PARALLEL_LEVEL = "12"
+CARGO_BUILD_JOBS = "12"
+DD_TRACE_COMPUTE_STATS = "false"
+DD_CODE_ORIGIN_FOR_SPANS_ENABLED = "false"
+DD_CIVISIBILITY_BACKEND_API_TIMEOUT_MILLIS = "2000"
+_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED = "1"
+DD_CIVISIBILITY_LOG_LEVEL = "none"
+DD_INSTRUMENTATION_TELEMETRY_ENABLED = "0"
+_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS = "50"
+DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED = "{env:NIGHTLY_BUILD:false}"
+PYTHONPATH = "{root}"
+DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED = "false"
+
+[envs.tracer-python-optimize]
+template = "tracer"
+
+[envs.tracer-python-optimize.env-vars]
+_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER = "1"
+DD_TESTING_RAISE = "1"
+DD_TRACE_AGENT_URL = "http://localhost:8126"
+DD_REMOTE_CONFIGURATION_ENABLED = "false"
+DD_INJECTION_ENABLED = "1"
+DD_INJECT_FORCE = "1"
+DD_PATCH_MODULES = "unittest:false"
+CMAKE_BUILD_PARALLEL_LEVEL = "12"
+CARGO_BUILD_JOBS = "12"
+DD_TRACE_COMPUTE_STATS = "false"
+DD_CODE_ORIGIN_FOR_SPANS_ENABLED = "false"
+DD_CIVISIBILITY_BACKEND_API_TIMEOUT_MILLIS = "2000"
+_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED = "1"
+DD_CIVISIBILITY_LOG_LEVEL = "none"
+DD_INSTRUMENTATION_TELEMETRY_ENABLED = "0"
+_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS = "50"
+DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED = "{env:NIGHTLY_BUILD:false}"
+PYTHONPATH = "{root}"
+PYTHONOPTIMIZE = "1"
+
+[[envs.tracer-python-optimize.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[envs.tracer-legacy-attrs]
+template = "tracer"
+python = "3.9"
+extra-dependencies = [
+  "attrs==22.1.0",
+  "cattrs<23.2.0",
+]
+
+[envs.tracer-uwsgi]
+template = "tracer"
+extra-dependencies = [
+  "uwsgi",
+]
+
+[envs.tracer-uwsgi.scripts]
+test = "pytest -v {args} tests/tracer/test_uwsgi_shutdown.py"
+collect = "pytest --collect-only -q {args} tests/tracer/test_uwsgi_shutdown.py"
+
+[[envs.tracer-uwsgi.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]

@@ -86,4 +86,31 @@ include:
     - export DD_TRACE_AGENT_URL="http://testagent:9126"
     - ln -s "${CI_PROJECT_DIR}" "/home/bits/project"
 
+
+# Keep this canary beside Riot until CI establishes Hatch parity and cold-start timing.
+hatch/tracer-py312-canary:
+  extends: .testrunner
+  stage: core
+  needs: [ prechecks ]
+  services:
+    - !reference [.services, ddagent]
+  variables:
+    DD_TRACE_AGENT_URL: http://localhost:8126
+    HATCH_VERSION: "1.17.1"
+    KUBERNETES_MEMORY_REQUEST: "4Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    UV_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/uv"
+  cache:
+    key: v1-hatch-tracer-py312-cache
+    paths:
+      - .cache/uv
+  before_script:
+    - !reference [.testrunner, before_script]
+    - unset DD_SERVICE
+    - unset DD_ENV
+    - unset DD_TAGS
+    - unset DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED
+  script:
+    - uvx --from "hatch==${HATCH_VERSION}" hatch run tracer.py3.12:test -- --ddtrace
+
 # Required jobs will appear here
