@@ -82,8 +82,9 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Duration-blind partitioning and ordering
      - High
      - Environment hashes are sorted and assigned round-robin. Tracer shards in one main run ranged from 126 to
-       770 seconds, a 6.1x spread.
-     - Use historical duration weights and longest-processing-time bin packing. Start the slowest bins first.
+       770 seconds, a 6.1x spread. With one environment per job, ordering alone cannot split a slow environment.
+     - Use historical duration weights at environment and test-node level. Split slow environments and start the
+       slowest safe units first.
    * - 3
      - Snapshot service cost is paid at suite granularity
      - High
@@ -101,7 +102,7 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Suite selectors schedule duplicate environments
      - High
      - ``tracer`` currently selects 19 hashes, including all five hashes selected by ``tracer-uwsgi``. Those five
-       environments are run twice when both suites are selected.
+       environments are run twice when both suites are selected, adding about 16 runner-minutes in the observed run.
      - Make the tracer selector exclusive and add a generated-config overlap check.
    * - 6
      - Subprocess execution has several overlapping paths
@@ -165,18 +166,21 @@ Success gates:
 
 ``get-riot-hashes.sh`` sorts hashes and ``ci-split-input.sh`` assigns them round-robin. The generator also scales
 toward 200 jobs using environment counts. Neither decision uses historical duration or fixed job startup cost.
+Tracer currently uses one environment per job, so hash ordering can improve queue priority but cannot shorten the
+slowest environment. Reducing its critical path requires test-node partitioning inside long environments.
 
 Proposed experiment:
 
 #. Store p50 and p95 duration by suite, environment hash, Python version, isolation class, and test node ID.
 #. Use a rolling median or exponentially weighted average so one bad run does not dominate future scheduling.
-#. Pack environments with longest-processing-time bin packing. Include estimated image, service, artifact, and cache
-   setup cost, and run the longest bins first.
+#. Split long environments into safe test-node work units. Pack short environments only when the saved fixed setup
+   outweighs the loss of parallelism. Include image, service, artifact, and cache setup cost.
 #. Choose parallelism by predicted completion time and runner-minute budget instead of a fixed 200-job floor.
 #. Keep a fallback deterministic order for new or missing duration data.
 
-Primary metrics are suite completion time, maximum-to-median shard ratio, total runner minutes, and queue time. The first
-target is to reduce the tracer maximum-to-minimum spread from 6.1x to below 1.5x without increasing runner minutes.
+Primary metrics are suite completion time, maximum-to-median shard ratio, total runner minutes, and queue time. After
+excluding the duplicated uWSGI environments, the unique tracer environments ranged from 492 to 770 seconds, or 1.6x.
+The first partitioning target is below 1.5x without increasing runner minutes.
 
 3. Separate snapshot service scope from dependency scope
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -219,7 +223,9 @@ Proposed experiment:
 
 The default suite selector is its name as a regular expression. Because ``tracer`` is not anchored, it also matches
 ``tracer-uwsgi``. On 2026-08-15 the broad selector returned 19 hashes and the explicit uWSGI selector returned five;
-all five uWSGI hashes were present in both lists.
+all five uWSGI hashes were present in both lists. Their broad-tracer copies consumed 971 observed runner-seconds,
+while the dedicated uWSGI copies consumed 952 seconds. Keeping the dedicated suite and removing the broad copies
+would therefore save about 16.2 runner-minutes in that run, but not its 770-second critical path.
 
 The immediate fix is an exclusive tracer selector. The durable fix is generated membership that does not depend on
 overlapping regular expressions. Add a pre-check that reports every hash assigned to more than one suite and requires
@@ -324,7 +330,7 @@ relative ranking but do not replace phase timers inside the jobs.
      - Build-once reuse works; Python 3.14 was the slowest setup lane.
    * - Tracer, 19 shards
      - 126 to 770 seconds
-     - 6.1x imbalance; the slowest shard determines suite completion.
+     - 6.1x overall. After excluding five duplicated uWSGI environments, the range was 492 to 770 seconds, or 1.6x.
    * - Tracer uWSGI, 5 shards
      - 96 to 280 seconds
      - 2.9x imbalance, and all five environments also matched the broad tracer selector.
