@@ -511,6 +511,13 @@ but that legacy environment forced ``DD_TRACE_AGENT_URL`` to ``http://testagent:
 inherits the suite-selected URL. This also identifies repeated installation of the Python 3.9 wait environment as a
 high-priority dependency and subprocess bottleneck to remove after the correctness checkpoint.
 
+Commit ``74c46041ed`` validated the fix with a temporary test-only parent pipeline. Generation took 48 seconds,
+producers took 211 to 266 seconds, prechecks took 251 seconds, all six smoke checks passed, and docs passed. All 14
+tracer environments passed. Their eligibility-to-terminal intervals split into waves: the first finished in 476 to
+518 seconds and the last in 582 to 682 seconds. These intervals include runner queue time, but the 206-second spread
+shows that 14-way fan-out exceeded available concurrency. The next checkpoint packs two tracer environments per job,
+reducing duplicated job startup and readiness work while preserving all environments.
+
 The tracer-only generation filter prevents unrelated generated jobs from consuming runner capacity while the child
 process fix is validated. Remove it immediately after the tracer checkpoint passes so the following run validates
 every preserved named suite through the uv path.

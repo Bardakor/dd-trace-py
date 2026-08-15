@@ -392,7 +392,7 @@ def gen_required_suites() -> None:
     if any(suite in required_suites for suite in ci_visibility_suites):
         required_suites = sorted(suites.keys())
 
-    _gen_tests(suites, required_suites)
+    _gen_tests(suites, required_suites, scale_to_target=not args.suites)
     _gen_benchmarks(suites, required_suites)
 
 
@@ -483,7 +483,7 @@ def _filter_benchmarks_slos_file(classnames: list) -> None:
     MICROBENCHMARKS_SLOS.write_text("\n".join(new_contents))
 
 
-def _gen_tests(suites: dict, required_suites: list[str]) -> None:
+def _gen_tests(suites: dict, required_suites: list[str], *, scale_to_target: bool = True) -> None:
     global _global_python_versions
 
     suites = {k: v for k, v in suites.items() if v.get("type", "test") == "test"}
@@ -555,7 +555,7 @@ def _gen_tests(suites: dict, required_suites: list[str]) -> None:
 
     # Scale up suites if total job count is below the target
     total_baseline = sum(baseline_jobs.values())
-    if total_baseline < TARGET_JOBS and scalable_suites:
+    if scale_to_target and total_baseline < TARGET_JOBS and scalable_suites:
         LOGGER.info(
             "Total baseline jobs (%d) below target (%d), scaling up %d suite(s)",
             total_baseline,

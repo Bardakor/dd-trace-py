@@ -298,7 +298,7 @@ suites:
       - tests/snapshots/test_*
     retry: 2
     pattern: ^tracer(?!-uwsgi)
-    venvs_per_job: 1
+    venvs_per_job: 2
   tracer-uwsgi:
     venvs_per_job: 1
     paths:

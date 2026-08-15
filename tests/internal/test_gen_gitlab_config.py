@@ -161,3 +161,22 @@ def test_requirements_cache_key_matches_sorted_lock_contents(gen_gitlab_config_m
     expected = gen_gitlab_config_mod.hashlib.sha256(b"a-package==1\nm-package==1\nz-package==1\n").hexdigest()
 
     assert gen_gitlab_config_mod.requirements_cache_key({"def5678", "abc1234"}) == expected
+
+
+def test_explicit_suite_generation_preserves_configured_packing(gen_gitlab_config_mod, monkeypatch, tmp_path):
+    output = tmp_path / "tests-gen.yml"
+    info = gen_gitlab_config_mod.SuiteVenvInfo(
+        venv_count=14,
+        python_versions={"3.12"},
+        venv_hashes={"abc1234"},
+    )
+    scale = mock.Mock()
+    monkeypatch.setattr(gen_gitlab_config_mod, "TESTS_GEN", output)
+    monkeypatch.setattr(gen_gitlab_config_mod, "collect_all_suite_venv_info", lambda patterns: {"tracer": info})
+    monkeypatch.setattr(gen_gitlab_config_mod, "requirements_cache_key", lambda hashes: "cache-key")
+    monkeypatch.setattr(gen_gitlab_config_mod, "_scale_suites", scale)
+
+    gen_gitlab_config_mod._gen_tests({"tracer": {"venvs_per_job": 2}}, ["tracer"], scale_to_target=False)
+
+    scale.assert_not_called()
+    assert "  parallel: 7" in output.read_text()
