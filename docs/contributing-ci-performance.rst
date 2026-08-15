@@ -114,9 +114,10 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Fixed on the migration branch: selectors are exclusive and generation rejects environment overlap.
    * - 7
      - Subprocess execution has several overlapping paths
-     - Medium
+     - High
      - The tree has 821 ``subprocess`` marker references, 562 ``run_in_subprocess`` references, and 329 direct
-       child-process calls. The legacy unittest helper starts a full unittest or pytest command per test.
+       child-process calls. The first all-suite uv run also exposed a shared startup hook that broke test-owned
+       ``sitecustomize`` modules across subprocess-heavy suites.
      - Instrument startup, import, body, and cleanup time; converge on one isolation launcher without batching span
        tests into a process.
    * - 8
@@ -272,6 +273,12 @@ Measure at least:
 * test body;
 * trace flush and snapshot handshake;
 * process cleanup, timeout, and captured output volume.
+
+The direct-uv runner initially placed its dependency activation ``sitecustomize`` ahead of the repository on
+``PYTHONPATH``. Python imports only the first module with that name, so tests that intentionally supplied their own
+startup hook silently lost it. Dependency activation now runs from a ``.pth`` file installed in the shared base.
+This still processes dependency-owned ``.pth`` files, but leaves ``sitecustomize`` available to the test. The base
+fingerprint includes this change so cached bases cannot retain the old startup contract.
 
 7. Narrow retries
 ^^^^^^^^^^^^^^^^^
@@ -523,6 +530,21 @@ per tracer job. Reducing fixed setup remains useful, but serial environment pack
 
 The tracer-only generation filter is now removed. The next run validates every selected named suite through the uv
 path while the temporary parent pipeline continues to suppress unrelated package and publishing work.
+
+2026-08-15, first all-suite uv run
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commit ``2141132edb`` expanded 83 selected suite groups into 855 sharded test contexts. All six base producers,
+all six smoke checks, prechecks, and documentation passed. At the broad diagnostic checkpoint, 653 contexts had
+passed, 194 had failed, and 31 remained pending. Failures clustered in subprocess-heavy suites, including AppSec,
+CI Visibility, integration, and internal tests, which indicated a shared runtime contract rather than hundreds of
+independent dependency errors.
+
+The internal Python 3.10 shard reproduced two failures locally. A test that requires its neighboring
+``sitecustomize`` produced no output, and a forked Symbol Database upload received an unexpected response. Both
+exact tests pass after moving dependency-prefix activation from the runner-owned ``sitecustomize`` into the base
+``.pth`` hook. The runtime unit tests also pass. The next real CI slice should validate internal and representative
+subprocess-heavy suites before repeating the 855-context run.
 
 Next sequence
 -------------

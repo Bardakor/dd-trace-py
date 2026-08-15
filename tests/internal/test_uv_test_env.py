@@ -9,7 +9,6 @@ import pytest
 
 
 _SCRIPT_PATH = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "uv_test_env.py"
-_SITECUSTOMIZE_PATH = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "uv_compat" / "sitecustomize.py"
 
 
 @pytest.fixture(scope="module")
@@ -33,24 +32,6 @@ def _instance(command="pytest {cmdargs} tests/tracer"):
         "python": f"{sys.version_info.major}.{sys.version_info.minor}",
         "python_version": ".".join(str(part) for part in sys.version_info[:3]),
     }
-
-
-def test_sitecustomize_activates_prefix_pth_files(monkeypatch, tmp_path):
-    prefix = tmp_path / "site-packages"
-    added_path = tmp_path / "from-pth"
-    prefix.mkdir()
-    added_path.mkdir()
-    (prefix / "test.pth").write_text(f"{added_path}\n")
-    monkeypatch.setenv("DD_TEST_SITE_PACKAGES", str(prefix))
-    monkeypatch.setattr(sys, "path", list(sys.path))
-
-    spec = importlib.util.spec_from_file_location("uv_sitecustomize", _SITECUSTOMIZE_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    assert sys.path[0] == str(prefix)
-    assert str(added_path) in sys.path
 
 
 def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod, monkeypatch, tmp_path):
@@ -97,9 +78,7 @@ def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod
 
 
 def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch, tmp_path):
-    bootstrap = tmp_path / "bootstrap"
     prefix = tmp_path / "prefix"
-    monkeypatch.setattr(uv_test_env_mod, "BOOTSTRAP_PATH", bootstrap)
     monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
     monkeypatch.setattr(uv_test_env_mod.os, "environ", {"PATH": "/bin", "PYTHONPATH": "existing"})
 
@@ -110,7 +89,7 @@ def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch,
     assert env["DD_TEST_ENV_ID"] == "abc1234"
     assert env["VIRTUAL_ENV"] == sys.prefix
     assert env["DD_TEST_SITE_PACKAGES"] == str(uv_test_env_mod._site_packages(prefix))
-    assert env["PYTHONPATH"] == uv_test_env_mod.os.pathsep.join((str(bootstrap), str(tmp_path), "existing"))
+    assert env["PYTHONPATH"] == uv_test_env_mod.os.pathsep.join((str(tmp_path), "existing"))
     assert env["PATH"].startswith(f"{prefix / 'bin'}{uv_test_env_mod.os.pathsep}")
 
 

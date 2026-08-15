@@ -59,6 +59,8 @@ def test_build_creates_and_reuses_a_fingerprinted_base(build_uv_base_mod, monkey
         "--editable",
         str(root),
     ]
+    overlay_hook = destination / "lib" / "python3.12" / "site-packages" / "dd_uv_test_overlay.pth"
+    assert overlay_hook.read_text() == build_uv_base_mod.OVERLAY_HOOK_CONTENT
     assert (destination / ".dd-uv-base").read_text() == "input-digest\n"
 
     mocked_run.reset_mock()

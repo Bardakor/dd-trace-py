@@ -23,7 +23,13 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_ROOT = ROOT / ".test-env" / "uv-bases"
-BUILD_SCHEMA = "uv-test-base-v2-pip-editable"
+BUILD_SCHEMA = "uv-test-base-v3-dependency-overlay"
+OVERLAY_HOOK = "dd_uv_test_overlay.pth"
+OVERLAY_HOOK_CONTENT = (
+    'import os, site, sys; p = os.environ.get("DD_TEST_SITE_PACKAGES"); '
+    "site.addsitedir(p) if p else None; "
+    "sys.path.insert(0, sys.path.pop(sys.path.index(p))) if p in sys.path else None\n"
+)
 BUILD_ENVIRONMENT = (
     "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
     "CARGO_PROFILE_RELEASE_LTO",
@@ -67,6 +73,7 @@ def _tracked_build_inputs() -> list[Path]:
 
 def build_digest(python: str, uv_version: str) -> str:
     digest = hashlib.sha256(BUILD_SCHEMA.encode())
+    digest.update(OVERLAY_HOOK_CONTENT.encode())
     digest.update(python.encode())
     digest.update(uv_version.encode())
     digest.update(json.dumps({name: os.environ.get(name) for name in BUILD_ENVIRONMENT}, sort_keys=True).encode())
@@ -74,6 +81,16 @@ def build_digest(python: str, uv_version: str) -> str:
         digest.update(os.fsencode(path))
         digest.update((ROOT / path).read_bytes())
     return digest.hexdigest()
+
+
+def _overlay_hook_path(destination: Path, python: str) -> Path:
+    return destination / "lib" / f"python{python}" / "site-packages" / OVERLAY_HOOK
+
+
+def _install_overlay_hook(destination: Path, python: str) -> None:
+    overlay_hook = _overlay_hook_path(destination, python)
+    overlay_hook.parent.mkdir(parents=True, exist_ok=True)
+    overlay_hook.write_text(OVERLAY_HOOK_CONTENT)
 
 
 def build(python: str) -> Path:
@@ -89,7 +106,14 @@ def build(python: str) -> Path:
     with lock_path.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         base_python = destination / "bin" / "python"
-        if marker.is_file() and marker.read_text().strip() == expected and base_python.is_file():
+        overlay_hook = _overlay_hook_path(destination, python)
+        if (
+            marker.is_file()
+            and marker.read_text().strip() == expected
+            and base_python.is_file()
+            and overlay_hook.is_file()
+            and overlay_hook.read_text() == OVERLAY_HOOK_CONTENT
+        ):
             return destination
 
         subprocess.run(
@@ -111,6 +135,7 @@ def build(python: str) -> Path:
             cwd=ROOT,
             check=True,
         )
+        _install_overlay_hook(destination, python)
         marker.write_text(expected + "\n")
     return destination
 

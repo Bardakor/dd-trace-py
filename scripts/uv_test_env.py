@@ -15,7 +15,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX_ROOT = ROOT / ".cache" / "uv-test-prefixes"
-BOOTSTRAP_PATH = ROOT / "scripts" / "uv_compat"
 INSTALLER_SCHEMA = b"uv-test-env-v1"
 
 
@@ -86,7 +85,7 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
         }
     )
     current_pythonpath = env.get("PYTHONPATH")
-    pythonpath = [str(BOOTSTRAP_PATH), str(ROOT)]
+    pythonpath = [str(ROOT)]
     if current_pythonpath:
         pythonpath.append(current_pythonpath)
     env["PYTHONPATH"] = os.pathsep.join(pythonpath)
