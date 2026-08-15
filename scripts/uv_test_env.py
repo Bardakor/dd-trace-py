@@ -28,8 +28,9 @@ def _site_packages(prefix: Path) -> Path:
     return Path(sysconfig.get_path("purelib", vars=paths))
 
 
-def _lock_digest(requirements: Path) -> str:
+def _lock_digest(requirements: Path, uv_version: str) -> str:
     digest = hashlib.sha256(INSTALLER_SCHEMA)
+    digest.update(uv_version.encode())
     digest.update(requirements.read_bytes())
     return digest.hexdigest()
 
@@ -41,7 +42,7 @@ def prepare_dependencies(metadata: dict[str, Any]) -> Path:
 
     prefix = _dependency_prefix(metadata)
     marker = prefix / ".dd-uv-lock"
-    expected_digest = _lock_digest(requirements)
+    expected_digest = _lock_digest(requirements, metadata["uv_version"])
     if marker.is_file() and marker.read_text().strip() == expected_digest:
         return prefix
 
@@ -50,7 +51,7 @@ def prepare_dependencies(metadata: dict[str, Any]) -> Path:
     prefix.mkdir(parents=True)
     subprocess.run(
         [
-            "uv",
+            metadata["uv"],
             "pip",
             "install",
             "--python",

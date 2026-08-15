@@ -64,13 +64,15 @@ def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod
         "hash": "abc1234",
         "python": "3.12",
         "requirements": "requirements.txt",
+        "uv": "/test/bin/uv",
+        "uv_version": "0.12.5",
     }
 
     prefix = uv_test_env_mod.prepare_dependencies(metadata)
     assert prefix == tmp_path / "prefixes" / "py3.12" / "abc1234"
     run.assert_called_once_with(
         [
-            "uv",
+            "/test/bin/uv",
             "pip",
             "install",
             "--python",
@@ -87,6 +89,10 @@ def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod
 
     uv_test_env_mod.prepare_dependencies(metadata)
     run.assert_called_once()
+
+    metadata["uv_version"] = "0.12.6"
+    uv_test_env_mod.prepare_dependencies(metadata)
+    assert run.call_count == 2
 
 
 def test_command_environment_preserves_riot_contract(uv_test_env_mod, monkeypatch, tmp_path):

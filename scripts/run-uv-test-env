@@ -3,10 +3,12 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "riot==0.22.0",
+#     "uv==0.12.5",
 # ]
 # ///
 from __future__ import annotations
 
+from importlib.metadata import version
 import json
 import os
 from pathlib import Path
@@ -18,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # AIDEV-NOTE: Riot remains the temporary source of resolved environment metadata.
-# uv owns dependency installation while this script executes the resolved commands.
+# uv owns dependency installation and command execution during the migration.
 import riotfile  # noqa: E402
 
 
@@ -37,10 +39,15 @@ def find_instances(identifier: str):
 
 def write_metadata(identifier: str, instances) -> Path:
     first = instances[0]
+    uv = Path(sys.executable).with_name("uv")
+    if not uv.is_file():
+        raise RuntimeError(f"Pinned uv executable was not installed at {uv}")
     metadata = {
         "hash": first.short_hash,
         "python": first.py._hint,
         "requirements": f".riot/requirements/{first.short_hash}.txt",
+        "uv": str(uv),
+        "uv_version": version("uv"),
         "instances": [
             {
                 "command": instance.command,
@@ -99,8 +106,15 @@ def main() -> int:
         return 2
 
     metadata_path = write_metadata(identifier, instances)
+    metadata = json.loads(metadata_path.read_text())
     command = [
+        metadata["uv"],
+        "run",
+        "--no-project",
+        "--python",
         str(base_venv / "bin" / "python"),
+        "--",
+        "python",
         "scripts/uv_test_env.py",
         str(metadata_path),
         *sys.argv[2:],
