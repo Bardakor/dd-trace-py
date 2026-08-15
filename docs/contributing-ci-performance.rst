@@ -88,10 +88,10 @@ rank does not imply that an optimization may relax the isolation rules above.
    * - 3
      - Critical test jobs wait behind unrelated work
      - High
-     - In the successful uv checkpoint, tracer jobs became eligible at 18:42 UTC but runner-start status updates were
-       staggered from 18:49:48 through 18:54:36. Queue delays of 7:27 to 12:15 exceeded the shared-base build time.
-     - Give migration and changed-test jobs runner priority, and suppress unrelated parent and generated jobs during
-       focused iteration. Measure eligibility-to-start separately from execution.
+     - In the successful uv checkpoint, tracer jobs became eligible together but completed 7:56 to 11:22 later.
+       GitHub status does not expose runner start, so queue and execution time cannot yet be separated.
+     - Measure eligibility-to-start and execution inside CI, give changed-test jobs runner priority, and suppress
+       unrelated parent and generated jobs during focused iteration.
    * - 4
      - Snapshot service cost is paid at suite granularity
      - High
@@ -513,14 +513,16 @@ high-priority dependency and subprocess bottleneck to remove after the correctne
 
 Commit ``74c46041ed`` validated the fix with a temporary test-only parent pipeline. Generation took 48 seconds,
 producers took 211 to 266 seconds, prechecks took 251 seconds, all six smoke checks passed, and docs passed. All 14
-tracer environments passed. Their eligibility-to-terminal intervals split into waves: the first finished in 476 to
-518 seconds and the last in 582 to 682 seconds. These intervals include runner queue time, but the 206-second spread
-shows that 14-way fan-out exceeded available concurrency. The next checkpoint packs two tracer environments per job,
-reducing duplicated job startup and readiness work while preserving all environments.
+tracer environments passed. Their eligibility-to-terminal intervals ranged from 476 to 682 seconds. The status API
+does not expose runner start, so the completion groups alone cannot distinguish queue delay from workload imbalance.
 
-The tracer-only generation filter prevents unrelated generated jobs from consuming runner capacity while the child
-process fix is validated. Remove it immediately after the tracer checkpoint passes so the following run validates
-every preserved named suite through the uv path.
+Commit ``a21854c40d`` tested two tracer environments per job. All seven jobs passed, but their
+eligibility-to-terminal intervals were 824 to 968 seconds. The fastest packed job was slower than the entire 14-job
+control, and suite completion regressed by 286 seconds, or 42 percent. The migration therefore keeps one environment
+per tracer job. Reducing fixed setup remains useful, but serial environment packing is not a critical-path win.
+
+The tracer-only generation filter is now removed. The next run validates every selected named suite through the uv
+path while the temporary parent pipeline continues to suppress unrelated package and publishing work.
 
 Next sequence
 -------------

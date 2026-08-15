@@ -258,6 +258,7 @@ plugin
 posix
 postgres
 pre
+prechecks
 preconfigured
 Prefill
 preload
