@@ -129,8 +129,8 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Suite routing, Riot environments, uv launch metadata, YAML templates, and generated jobs repeat related
        concepts. The baseline started one Riot subprocess per suite to calculate cache keys. Full local generation
        took 24.6 seconds; the observed CI configuration job took 88 to 97 seconds.
-     - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds and the next CI job from
-       97 to 86 seconds. Next, introduce one suite model with dependency, services, isolation, and partitioning fields.
+     - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds. The next two CI jobs took
+       86 and 28 seconds, down from 97. Next, introduce one suite model with isolation and partitioning fields.
 
 Detailed findings and experiments
 ---------------------------------
@@ -315,8 +315,9 @@ The migration branch also removed a subprocess per suite from configuration gene
 Riot separately to list each suite's environment hashes before hashing their lock files. It now reuses the hashes
 collected during the single environment pass and calculates the same cache key in-process. Full 203-suite generation
 dropped from 24.6 to 0.69 seconds locally; the required-suite phase dropped from 24.6 to 0.31 seconds. The next real
-CI configuration job dropped from 97 to 86 seconds. The smaller 11-second CI gain, and the 88-second main reference,
-show that runner startup and fixed setup now dominate this job. Add in-job phase timing before optimizing it further.
+CI configuration jobs took 86 and then 28 seconds, down from 97 seconds. The spread, and the 88-second main reference,
+show that runner startup, cache warmth, and fixed setup now dominate this job. Add in-job phase timing before
+optimizing it further.
 
 Measurement log
 ---------------
@@ -375,8 +376,9 @@ Source inventory at commit ``5f6681657d``
   exclusive selector in real CI; the five uWSGI environments remain available through their dedicated suite.
 * The configuration job took 97 seconds at ``7f56b6fc7e`` and 86 seconds after in-process cache keys at
   ``4bc8911a52``: an 11-second, or 11 percent, pending-to-success improvement.
-* Main commit ``e5c63be476`` took 88 seconds, so this single-run comparison establishes removal of the repeated local
-  work but not a stable CI regression threshold. Retain multiple runs and add internal phase timers.
+* The following documentation-only commit, ``b7d31db910``, took 28 seconds with the same generator. Main commit
+  ``e5c63be476`` took 88 seconds. These runs establish removal of the repeated local work but not a stable CI
+  regression threshold; cache warmth and runner setup need internal phase timers before attributing the full change.
 
 Next sequence
 -------------
