@@ -670,6 +670,18 @@ def gen_pre_checks() -> None:
         paths={"docker*", "riotfile.py", "pyproject.toml", "scripts/lint"},
     )
     check(
+        name="Check resolved test environments",
+        command=(
+            "scripts/test_env_contract.py check && scripts/test_env_contract.py audit --max-anonymous-containers 0"
+        ),
+        paths={
+            "riotfile.py",
+            "scripts/test_env_contract.py",
+            "tests/environments/riot-contract.json",
+            "**suitespec.yml",
+        },
+    )
+    check(
         name="Style: Test snapshots",
         command="scripts/lint fmt-snapshots && git diff --exit-code tests/snapshots",
         paths={"docker*", "tests/snapshots/*", "scripts/lint"},

@@ -380,6 +380,18 @@ Source inventory at commit ``5f6681657d``
   ``e5c63be476`` took 88 seconds. These runs establish removal of the repeated local work but not a stable CI
   regression threshold; cache warmth and runner setup need internal phase timers before attributing the full change.
 
+2026-08-15, Riot structure flattening
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The migration first froze Riot's resolved behavior as a checked-in contract: 1,936 ordered instances, 1,886 unique
+environment hashes, 193 resolved names, 203 suite selections, commands, dependency order, and environment variables.
+Anonymous inheritance containers below the root then fell from 13 to zero while all 197 named declarations remained.
+The contract digest and every environment hash stayed unchanged.
+
+One anonymous leaf remains at depth three under the named ``tracer-python-optimize`` node. It is a concrete Python
+variant, not an inheritance container; moving it would remove or alter a named selection boundary. CI now rejects a
+new anonymous container and rejects any resolved-contract change unless the snapshot is reviewed explicitly.
+
 Next sequence
 -------------
 

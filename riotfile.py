@@ -121,6 +121,92 @@ _appsec_threats_iast_env = {
     "DD_APPSEC_ENABLED": "true",
 }
 
+# AIDEV-NOTE: These dictionaries replace unnamed inheritance layers. Keep keys in parent-before-child order so
+# resolved Riot hashes remain stable until the declarative inventory replaces this file.
+_gevent_shared_pkgs = {
+    "aiobotocore": "<=2.3.1",
+    "aiohttp": latest,
+    "botocore": latest,
+    "requests": latest,
+    "opensearch-py": latest,
+}
+
+_flask_cache_v1_old_pkgs = {
+    "flask": "~=1.1.0",
+    "flask-caching": "~=1.10.0",
+    # https://github.com/pallets/itsdangerous/issues/290
+    "itsdangerous": "<2.0",
+    # https://github.com/pallets/markupsafe/issues/282
+    "markupsafe": "<2.0",
+}
+
+_flask_cache_v1_latest_pkgs = {
+    "flask": "~=1.1.0",
+    "flask-caching": latest,
+    "itsdangerous": "<2.0",
+    "markupsafe": "<2.0",
+}
+
+_flask_cache_latest_old_pkgs = {
+    "flask": latest,
+    "flask-caching": "~=1.10.0",
+}
+
+_flask_cache_latest_latest_pkgs = {
+    "flask": latest,
+    "flask-caching": latest,
+}
+
+_pytest_py39_pkgs = {
+    "msgpack": latest,
+    "more_itertools": "<8.11.0",
+    "pytest-mock": "==2.0.0",
+    "httpx": "<0.28.0",
+}
+
+_llmobs_main_pkgs = {
+    "vcrpy": latest,
+    "openai": latest,
+    "google-cloud-aiplatform": latest,
+    "boto3": latest,
+    "pytest-asyncio": "==0.21.1",
+    "pytest-xdist": latest,
+    "langchain": latest,
+    "pandas": latest,
+    # Required by the feature-flag evaluation prompt tests.
+    "openfeature-sdk": ">=0.8,<1",
+}
+
+
+def _profile_variants(python, protobuf):
+    """Return direct profile children for one Python and protobuf matrix."""
+    return [
+        Venv(
+            pys=python,
+            pkgs={"uwsgi": latest, "protobuf": protobuf},
+        ),
+        Venv(
+            pys=python,
+            env={"DD_PROFILE_TEST_GEVENT": "1"},
+            pkgs={
+                "uwsgi": latest,
+                "gunicorn[gevent]": latest,
+                "gevent": latest,
+                "protobuf": latest,
+            },
+        ),
+        Venv(
+            pys=python,
+            env={"USE_UVLOOP": "1"},
+            pkgs={
+                "uwsgi": latest,
+                "uvloop": latest,
+                "protobuf": latest,
+            },
+        ),
+    ]
+
+
 venv = Venv(
     pkgs={
         "mock": latest,
@@ -680,42 +766,26 @@ venv = Venv(
             },
             venvs=[
                 Venv(
+                    pys="3.9",
                     pkgs={
-                        "aiobotocore": "<=2.3.1",
-                        "aiohttp": latest,
-                        "botocore": latest,
-                        "requests": latest,
-                        "opensearch-py": latest,
+                        **_gevent_shared_pkgs,
+                        # https://github.com/gevent/gevent/issues/2076
+                        "gevent": ["~=21.1.0", "<21.8.0"],
+                        "greenlet": "~=1.0",
                     },
-                    venvs=[
-                        Venv(
-                            pys="3.9",
-                            pkgs={
-                                # https://github.com/gevent/gevent/issues/2076
-                                "gevent": ["~=21.1.0", "<21.8.0"],
-                                "greenlet": "~=1.0",
-                            },
-                        ),
-                        Venv(
-                            # gevent added support for Python 3.10 in 21.8.0
-                            pys="3.10",
-                            pkgs={
-                                "gevent": ["~=21.12.0", latest],
-                            },
-                        ),
-                        Venv(
-                            pys="3.11",
-                            pkgs={
-                                "gevent": ["~=22.10.0", latest],
-                            },
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.12"),
-                            pkgs={
-                                "gevent": [latest],
-                            },
-                        ),
-                    ],
+                ),
+                Venv(
+                    # gevent added support for Python 3.10 in 21.8.0
+                    pys="3.10",
+                    pkgs={**_gevent_shared_pkgs, "gevent": ["~=21.12.0", latest]},
+                ),
+                Venv(
+                    pys="3.11",
+                    pkgs={**_gevent_shared_pkgs, "gevent": ["~=22.10.0", latest]},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.12"),
+                    pkgs={**_gevent_shared_pkgs, "gevent": [latest]},
                 ),
             ],
         ),
@@ -1344,42 +1414,36 @@ venv = Venv(
                     },
                 ),
                 Venv(
-                    pkgs={
-                        "flask": "~=1.1.0",
-                        "flask-caching": ["~=1.10.0", latest],
-                        # https://github.com/pallets/itsdangerous/issues/290
-                        # DEV: Breaking change made in 2.0 release
-                        "itsdangerous": "<2.0",
-                        # https://github.com/pallets/markupsafe/issues/282
-                        # DEV: Breaking change made in 2.1.0 release
-                        "markupsafe": "<2.0",
-                    },
-                    venvs=[
-                        Venv(
-                            pys=select_pys(min_version="3.9", max_version="3.11"),
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.12", max_version="3.13"),
-                            pkgs={
-                                "redis": latest,
-                            },
-                        ),
-                    ],
+                    pys=select_pys(min_version="3.9", max_version="3.11"),
+                    pkgs={**_flask_cache_v1_old_pkgs},
                 ),
                 Venv(
-                    pkgs={
-                        "flask": [latest],
-                        "flask-caching": ["~=1.10.0", latest],
-                    },
-                    venvs=[
-                        Venv(
-                            pys=select_pys(min_version="3.9", max_version="3.11"),
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.12", max_version="3.13"),
-                            pkgs={"redis": latest},
-                        ),
-                    ],
+                    pys=select_pys(min_version="3.12", max_version="3.13"),
+                    pkgs={**_flask_cache_v1_old_pkgs, "redis": latest},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.9", max_version="3.11"),
+                    pkgs={**_flask_cache_v1_latest_pkgs},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.12", max_version="3.13"),
+                    pkgs={**_flask_cache_v1_latest_pkgs, "redis": latest},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.9", max_version="3.11"),
+                    pkgs={**_flask_cache_latest_old_pkgs},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.12", max_version="3.13"),
+                    pkgs={**_flask_cache_latest_old_pkgs, "redis": latest},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.9", max_version="3.11"),
+                    pkgs={**_flask_cache_latest_latest_pkgs},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.12", max_version="3.13"),
+                    pkgs={**_flask_cache_latest_latest_pkgs, "redis": latest},
                 ),
             ],
         ),
@@ -1461,36 +1525,32 @@ venv = Venv(
             },
             venvs=[
                 Venv(
-                    venvs=[
-                        Venv(
-                            pys=["3.9"],
-                            pkgs={
-                                "psycopg": "~=3.0.0",
-                                "pytest-asyncio": "==0.21.1",
-                            },
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.9", max_version="3.11"),
-                            pkgs={
-                                "psycopg": latest,
-                                "pytest-asyncio": "==0.21.1",
-                            },
-                        ),
-                        Venv(
-                            pys=["3.12"],
-                            pkgs={
-                                "psycopg": latest,
-                                "pytest-asyncio": "==0.23.7",
-                            },
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.13"),
-                            pkgs={
-                                "psycopg": latest,
-                                "pytest-asyncio": ">=1.0",
-                            },
-                        ),
-                    ],
+                    pys=["3.9"],
+                    pkgs={
+                        "psycopg": "~=3.0.0",
+                        "pytest-asyncio": "==0.21.1",
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.9", max_version="3.11"),
+                    pkgs={
+                        "psycopg": latest,
+                        "pytest-asyncio": "==0.21.1",
+                    },
+                ),
+                Venv(
+                    pys=["3.12"],
+                    pkgs={
+                        "psycopg": latest,
+                        "pytest-asyncio": "==0.23.7",
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.13"),
+                    pkgs={
+                        "psycopg": latest,
+                        "pytest-asyncio": ">=1.0",
+                    },
                 ),
             ],
         ),
@@ -1941,26 +2001,15 @@ venv = Venv(
             venvs=[
                 Venv(
                     pys="3.9",
-                    pkgs={
-                        "msgpack": latest,
-                        "more_itertools": "<8.11.0",
-                        "pytest-mock": "==2.0.0",
-                        "httpx": "<0.28.0",
-                    },
-                    venvs=[
-                        Venv(
-                            pkgs={
-                                "pytest": ["~=6.0"],
-                                "pytest-cov": "==2.9.0",
-                            },
-                        ),
-                        Venv(
-                            pkgs={
-                                "pytest": ["~=7.0", latest],
-                                "pytest-cov": "==2.12.0",
-                            },
-                        ),
-                    ],
+                    pkgs={**_pytest_py39_pkgs, "pytest": "~=6.0", "pytest-cov": "==2.9.0"},
+                ),
+                Venv(
+                    pys="3.9",
+                    pkgs={**_pytest_py39_pkgs, "pytest": "~=7.0", "pytest-cov": "==2.12.0"},
+                ),
+                Venv(
+                    pys="3.9",
+                    pkgs={**_pytest_py39_pkgs, "pytest": latest, "pytest-cov": "==2.12.0"},
                 ),
                 Venv(
                     pys=select_pys(min_version="3.10", max_version="3.13"),
@@ -2904,29 +2953,29 @@ venv = Venv(
                     pkgs={"pytest-asyncio": "==0.21.1"},
                 ),
                 Venv(
+                    pys="3.9",
                     command="pytest {cmdargs} tests/opentracer/test_tracer_gevent.py",
-                    venvs=[
-                        Venv(
-                            pys="3.9",
-                            pkgs={"gevent": latest, "greenlet": latest},
-                        ),
-                        Venv(
-                            pys="3.10",
-                            pkgs={"gevent": latest},
-                        ),
-                        Venv(
-                            pys="3.11",
-                            pkgs={"gevent": latest},
-                        ),
-                        Venv(
-                            pys="3.12",
-                            pkgs={"gevent": "~=23.9.0"},
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.13"),
-                            pkgs={"gevent": latest},
-                        ),
-                    ],
+                    pkgs={"gevent": latest, "greenlet": latest},
+                ),
+                Venv(
+                    pys="3.10",
+                    command="pytest {cmdargs} tests/opentracer/test_tracer_gevent.py",
+                    pkgs={"gevent": latest},
+                ),
+                Venv(
+                    pys="3.11",
+                    command="pytest {cmdargs} tests/opentracer/test_tracer_gevent.py",
+                    pkgs={"gevent": latest},
+                ),
+                Venv(
+                    pys="3.12",
+                    command="pytest {cmdargs} tests/opentracer/test_tracer_gevent.py",
+                    pkgs={"gevent": "~=23.9.0"},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.13"),
+                    command="pytest {cmdargs} tests/opentracer/test_tracer_gevent.py",
+                    pkgs={"gevent": latest},
                 ),
             ],
         ),
@@ -3381,18 +3430,15 @@ venv = Venv(
             },
             venvs=[
                 Venv(
+                    pys=select_pys(min_version="3.9", max_version="3.10"),
                     command="pytest -n auto --dist=worksteal {cmdargs} -vv tests/contrib/kafka",
-                    venvs=[
-                        Venv(
-                            pys=select_pys(min_version="3.9", max_version="3.10"),
-                            pkgs={"confluent-kafka": ["~=1.9.2", latest]},
-                        ),
-                        # confluent-kafka added support for Python 3.11 in 2.0.2
-                        Venv(
-                            pys=select_pys(min_version="3.11", max_version="3.13"),
-                            pkgs={"confluent-kafka": latest},
-                        ),
-                    ],
+                    pkgs={"confluent-kafka": ["~=1.9.2", latest]},
+                ),
+                # confluent-kafka added support for Python 3.11 in 2.0.2
+                Venv(
+                    pys=select_pys(min_version="3.11", max_version="3.13"),
+                    command="pytest -n auto --dist=worksteal {cmdargs} -vv tests/contrib/kafka",
+                    pkgs={"confluent-kafka": latest},
                 ),
             ],
         ),
@@ -3612,32 +3658,19 @@ venv = Venv(
             name="llmobs",
             venvs=[
                 Venv(
+                    pys=["3.9"],
+                    command="pytest -n auto --dist=worksteal {cmdargs} tests/llmobs",
+                    pkgs={**_llmobs_main_pkgs},
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.10", max_version="3.13"),
                     command="pytest -n auto --dist=worksteal {cmdargs} tests/llmobs",
                     pkgs={
-                        "vcrpy": latest,
-                        "openai": latest,
-                        "google-cloud-aiplatform": latest,
-                        "boto3": latest,
-                        "pytest-asyncio": "==0.21.1",
-                        "pytest-xdist": latest,
-                        "langchain": latest,
-                        "pandas": latest,
-                        # openfeature-sdk is an optional dependency (ddtrace[openfeature]) gating the
-                        # FFE prompt path; the FFE tests in test_prompts.py need it installed.
-                        "openfeature-sdk": ">=0.8,<1",
+                        **_llmobs_main_pkgs,
+                        # These evaluation libraries support Python 3.10 and newer.
+                        "deepeval": latest,
+                        "pydantic-evals": ">=1.31",
                     },
-                    venvs=[
-                        Venv(
-                            pys=["3.9"],
-                        ),
-                        Venv(
-                            pys=select_pys(min_version="3.10", max_version="3.13"),
-                            pkgs={
-                                "deepeval": latest,  # deepeval and pydantic-evals only supported on Python 3.10+
-                                "pydantic-evals": ">=1.31",
-                            },
-                        ),
-                    ],
                 ),
                 # Pydantic v1 compatibility — only needs pydantic, not the heavy deps above
                 Venv(
@@ -3705,138 +3738,13 @@ venv = Venv(
                         "protobuf": latest,
                     },
                 ),
-                Venv(
-                    pys="3.9",
-                    pkgs={"uwsgi": latest},
-                    venvs=[
-                        Venv(
-                            pkgs={
-                                "protobuf": ["==3.19.0", latest],
-                            },
-                        ),
-                        # Gevent
-                        Venv(
-                            env={
-                                "DD_PROFILE_TEST_GEVENT": "1",
-                            },
-                            pkgs={
-                                "gunicorn[gevent]": latest,
-                                "gevent": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                        # uvloop
-                        Venv(
-                            env={
-                                "USE_UVLOOP": "1",
-                            },
-                            pkgs={
-                                "uvloop": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                    ],
-                ),
-                # Python 3.10
-                Venv(
-                    pys="3.10",
-                    pkgs={"uwsgi": latest},
-                    venvs=[
-                        Venv(
-                            pkgs={
-                                "protobuf": ["==3.19.0", latest],
-                            },
-                        ),
-                        # Gevent
-                        Venv(
-                            env={
-                                "DD_PROFILE_TEST_GEVENT": "1",
-                            },
-                            pkgs={
-                                "gunicorn[gevent]": latest,
-                                "gevent": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                        # uvloop
-                        Venv(
-                            env={
-                                "USE_UVLOOP": "1",
-                            },
-                            pkgs={
-                                "uvloop": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                    ],
-                ),
-                # Python >= 3.11 (excluding 3.14)
-                Venv(
-                    pys=select_pys("3.11", "3.13"),
-                    pkgs={"uwsgi": latest},
-                    venvs=[
-                        Venv(
-                            pkgs={
-                                "protobuf": ["==4.22.0", latest],
-                            },
-                        ),
-                        # Gevent
-                        Venv(
-                            env={
-                                "DD_PROFILE_TEST_GEVENT": "1",
-                            },
-                            pkgs={
-                                "gunicorn[gevent]": latest,
-                                "gevent": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                        # uvloop
-                        Venv(
-                            env={
-                                "USE_UVLOOP": "1",
-                            },
-                            pkgs={
-                                "uvloop": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                    ],
-                ),
-                # Python 3.14 - protobuf 4.22.0 is not compatible (TypeError: Metaclasses with custom tp_new)
-                Venv(
-                    pys="3.14",
-                    pkgs={"uwsgi": latest},
-                    venvs=[
-                        Venv(
-                            pkgs={
-                                # Use latest only - protobuf 4.22.0 fails with Python 3.14
-                                "protobuf": latest,
-                            },
-                        ),
-                        # Gevent
-                        Venv(
-                            env={
-                                "DD_PROFILE_TEST_GEVENT": "1",
-                            },
-                            pkgs={
-                                "gunicorn[gevent]": latest,
-                                "gevent": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                        # uvloop
-                        Venv(
-                            env={
-                                "USE_UVLOOP": "1",
-                            },
-                            pkgs={
-                                "uvloop": latest,
-                                "protobuf": latest,
-                            },
-                        ),
-                    ],
-                ),
+                *_profile_variants("3.9", ["==3.19.0", latest]),
+                *_profile_variants("3.10", ["==3.19.0", latest]),
+                *_profile_variants("3.11", ["==4.22.0", latest]),
+                *_profile_variants("3.12", ["==4.22.0", latest]),
+                *_profile_variants("3.13", ["==4.22.0", latest]),
+                # protobuf 4.22.0 does not support Python 3.14.
+                *_profile_variants("3.14", latest),
                 Venv(
                     name="profile-memalloc",
                     command="python -m tests.profiling.run pytest -v --no-cov --capture=no --benchmark-disable {cmdargs} tests/profiling/collector/test_memalloc.py tests/profiling/test_memalloc_fork.py",  # noqa: E501
@@ -3870,11 +3778,7 @@ venv = Venv(
             },
             venvs=[
                 Venv(
-                    venvs=[
-                        Venv(
-                            name="selenium-pytest",
-                        ),
-                    ],
+                    name="selenium-pytest",
                 ),
             ],
         ),

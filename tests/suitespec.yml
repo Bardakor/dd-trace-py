@@ -219,6 +219,8 @@ suites:
       - '@vendor'
       - ddtrace/internal/*
       - scripts/gen_gitlab_config.py
+      - scripts/test_env_contract.py
+      - tests/environments/*
       - tests/internal/*
       - tests/submod/*
       - tests/cache/*
