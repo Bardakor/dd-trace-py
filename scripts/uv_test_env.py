@@ -1,19 +1,73 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import sys
+import sysconfig
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PREFIX_ROOT = ROOT / ".cache" / "uv-test-prefixes"
+INSTALLER_SCHEMA = b"uv-test-env-v1"
 
 
-def command_environment(instance: dict[str, Any]) -> dict[str, str]:
+def _dependency_prefix(metadata: dict[str, Any]) -> Path:
+    return PREFIX_ROOT / f"py{metadata['python']}" / metadata["hash"]
+
+
+def _site_packages(prefix: Path) -> Path:
+    paths = {"base": str(prefix), "platbase": str(prefix)}
+    return Path(sysconfig.get_path("purelib", vars=paths))
+
+
+def _lock_digest(requirements: Path) -> str:
+    digest = hashlib.sha256(INSTALLER_SCHEMA)
+    digest.update(requirements.read_bytes())
+    return digest.hexdigest()
+
+
+def prepare_dependencies(metadata: dict[str, Any]) -> Path:
+    requirements = ROOT / metadata["requirements"]
+    if not requirements.is_file():
+        raise RuntimeError(f"Missing requirements lock: {requirements}")
+
+    prefix = _dependency_prefix(metadata)
+    marker = prefix / ".dd-uv-lock"
+    expected_digest = _lock_digest(requirements)
+    if marker.is_file() and marker.read_text().strip() == expected_digest:
+        return prefix
+
+    if prefix.exists():
+        shutil.rmtree(prefix)
+    prefix.mkdir(parents=True)
+    subprocess.run(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            sys.executable,
+            "--prefix",
+            str(prefix),
+            "--no-deps",
+            "--requirement",
+            str(requirements),
+        ],
+        cwd=ROOT,
+        check=True,
+    )
+    marker.write_text(expected_digest)
+    return prefix
+
+
+def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.update(instance["env"])
     env.update(
@@ -29,6 +83,10 @@ def command_environment(instance: dict[str, Any]) -> dict[str, str]:
             "VIRTUAL_ENV": sys.prefix,
         }
     )
+    site_packages = str(_site_packages(prefix))
+    current_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join((site_packages, current_pythonpath)) if current_pythonpath else site_packages
+    env["PATH"] = os.pathsep.join((str(prefix / "bin"), str(Path(sys.executable).parent), env.get("PATH", "")))
     return env
 
 
@@ -43,12 +101,13 @@ def run_environment(metadata_path: Path, command_args: list[str]) -> int:
     if running_python != metadata["python"]:
         raise RuntimeError(f"Environment requires Python {metadata['python']}, got {running_python}")
 
+    prefix = prepare_dependencies(metadata)
     for instance in metadata["instances"]:
         command = format_command(instance["command"], command_args)
         result = subprocess.run(
             command,
             cwd=ROOT,
-            env=command_environment(instance),
+            env=command_environment(instance, prefix),
             executable="/bin/bash",
             shell=True,
         )

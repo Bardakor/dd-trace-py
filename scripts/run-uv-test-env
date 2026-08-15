@@ -40,6 +40,7 @@ def write_metadata(identifier: str, instances) -> Path:
     metadata = {
         "hash": first.short_hash,
         "python": first.py._hint,
+        "requirements": f".riot/requirements/{first.short_hash}.txt",
         "instances": [
             {
                 "command": instance.command,
@@ -104,8 +105,6 @@ def main() -> int:
         "--no-project",
         "--python",
         str(base_venv / "bin" / "python"),
-        "--with-requirements",
-        str(requirements),
         "--",
         "python",
         "scripts/uv_test_env.py",

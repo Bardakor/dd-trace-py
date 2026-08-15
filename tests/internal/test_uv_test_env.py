@@ -34,16 +34,54 @@ def _instance(command="pytest {cmdargs} tests/tracer"):
     }
 
 
-def test_command_environment_preserves_riot_contract(uv_test_env_mod, monkeypatch):
-    monkeypatch.setattr(uv_test_env_mod.os, "environ", {"PATH": "/bin"})
+def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod, monkeypatch, tmp_path):
+    lock = tmp_path / "requirements.txt"
+    lock.write_text("pytest==8.4.2\n")
+    monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
+    monkeypatch.setattr(uv_test_env_mod, "PREFIX_ROOT", tmp_path / "prefixes")
+    run = mock.Mock()
+    monkeypatch.setattr(uv_test_env_mod.subprocess, "run", run)
+    metadata = {
+        "hash": "abc1234",
+        "python": "3.12",
+        "requirements": "requirements.txt",
+    }
 
-    env = uv_test_env_mod.command_environment(_instance())
+    prefix = uv_test_env_mod.prepare_dependencies(metadata)
+    assert prefix == tmp_path / "prefixes" / "py3.12" / "abc1234"
+    run.assert_called_once_with(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            sys.executable,
+            "--prefix",
+            str(prefix),
+            "--no-deps",
+            "--requirement",
+            str(lock),
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    uv_test_env_mod.prepare_dependencies(metadata)
+    run.assert_called_once()
+
+
+def test_command_environment_preserves_riot_contract(uv_test_env_mod, monkeypatch, tmp_path):
+    prefix = tmp_path / "prefix"
+    monkeypatch.setattr(uv_test_env_mod.os, "environ", {"PATH": "/bin", "PYTHONPATH": "existing"})
+
+    env = uv_test_env_mod.command_environment(_instance(), prefix)
 
     assert env["DD_TRACE_ENABLED"] == "false"
     assert env["RIOT"] == "1"
     assert env["RIOT_VENV_HASH"] == "abc1234"
     assert env["VIRTUAL_ENV"] == sys.prefix
-    assert env["PATH"] == "/bin"
+    assert env["PYTHONPATH"] == f"{uv_test_env_mod._site_packages(prefix)}{uv_test_env_mod.os.pathsep}existing"
+    assert env["PATH"].startswith(f"{prefix / 'bin'}{uv_test_env_mod.os.pathsep}")
 
 
 def test_format_command_shell_quotes_forwarded_arguments(uv_test_env_mod):
@@ -62,8 +100,12 @@ def test_run_environment_runs_all_matching_instances(uv_test_env_mod, monkeypatc
             }
         )
     )
+    prefix = tmp_path / "prefix"
     monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
-    monkeypatch.setattr(uv_test_env_mod, "command_environment", lambda instance: {"INSTANCE": instance["command"]})
+    monkeypatch.setattr(uv_test_env_mod, "prepare_dependencies", lambda metadata: prefix)
+    monkeypatch.setattr(
+        uv_test_env_mod, "command_environment", lambda instance, path: {"INSTANCE": instance["command"]}
+    )
     run = mock.Mock(
         side_effect=[
             subprocess.CompletedProcess([], 0),
@@ -94,7 +136,8 @@ def test_run_environment_stops_after_failure(uv_test_env_mod, monkeypatch, tmp_p
             }
         )
     )
-    monkeypatch.setattr(uv_test_env_mod, "command_environment", lambda instance: {})
+    monkeypatch.setattr(uv_test_env_mod, "prepare_dependencies", lambda metadata: tmp_path / "prefix")
+    monkeypatch.setattr(uv_test_env_mod, "command_environment", lambda instance, path: {})
     run = mock.Mock(return_value=subprocess.CompletedProcess([], 17))
     monkeypatch.setattr(uv_test_env_mod.subprocess, "run", run)
 
