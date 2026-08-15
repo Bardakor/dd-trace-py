@@ -89,8 +89,26 @@ def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch,
     assert env["DD_TEST_ENV_ID"] == "abc1234"
     assert env["VIRTUAL_ENV"] == sys.prefix
     assert env["DD_TEST_SITE_PACKAGES"] == str(uv_test_env_mod._site_packages(prefix))
-    assert env["PYTHONPATH"] == uv_test_env_mod.os.pathsep.join((str(tmp_path), "existing"))
+    assert env["PYTHONPATH"] == uv_test_env_mod.os.pathsep.join(
+        (str(tmp_path), "existing", str(uv_test_env_mod._site_packages(prefix)))
+    )
     assert env["PATH"].startswith(f"{prefix / 'bin'}{uv_test_env_mod.os.pathsep}")
+
+
+def test_command_environment_preserves_local_testagent_override(uv_test_env_mod, monkeypatch, tmp_path):
+    instance = _instance()
+    instance["env"]["DD_TRACE_AGENT_URL"] = "http://testagent:9126"
+    monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        uv_test_env_mod.os,
+        "environ",
+        {"PATH": "/bin", "DD_TEST_AGENT_URL_OVERRIDE": "http://localhost:49152"},
+    )
+
+    env = uv_test_env_mod.command_environment(instance, tmp_path / "prefix")
+
+    assert env["DD_TRACE_AGENT_URL"] == "http://localhost:49152"
+    assert "DD_TEST_AGENT_URL_OVERRIDE" not in env
 
 
 def test_format_command_shell_quotes_forwarded_arguments(uv_test_env_mod):

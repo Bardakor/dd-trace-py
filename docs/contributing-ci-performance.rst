@@ -543,8 +543,21 @@ independent dependency errors.
 The internal Python 3.10 shard reproduced two failures locally. A test that requires its neighboring
 ``sitecustomize`` produced no output, and a forked Symbol Database upload received an unexpected response. Both
 exact tests pass after moving dependency-prefix activation from the runner-owned ``sitecustomize`` into the base
-``.pth`` hook. The runtime unit tests also pass. The next real CI slice should validate internal and representative
-subprocess-heavy suites before repeating the 855-context run.
+``.pth`` hook. The runtime unit tests also pass.
+
+Commit ``e61af881bd`` selected internal, AppSec FastAPI, AppSec Flask test-agent, CI Visibility pytest snapshot, and
+Selenium as a 41-job subprocess-heavy slice. All six bases, six smoke checks, and prechecks passed, while all 41
+test jobs failed. The documentation failure was separate: the Sphinx dictionary contained ``Subprocess`` but not
+its lowercase form, and the exact documentation command passes after adding it.
+
+The exact failed Selenium Python 3.12 environment then reproduced locally. A nested pytest command retained
+``PYTHONPATH`` but intentionally filtered most other environment variables, removing ``DD_TEST_SITE_PACKAGES``.
+Its generated pytest launcher selected the shared base interpreter, which could no longer find pytest in the uv
+dependency prefix. The runtime now also appends the resolved dependency directory to ``PYTHONPATH`` as a fallback;
+the base ``.pth`` hook remains responsible for processing dependency-owned ``.pth`` files. The exact Selenium shard
+passes all four tests in 13.31 seconds, and the startup-hook regression remains green. A local-runner fix also maps
+suite service aliases and the test-agent URL to host-network endpoints, allowing CI failures to be reproduced with
+the same command. Repeat the representative slice before returning to the 855-context run.
 
 Next sequence
 -------------

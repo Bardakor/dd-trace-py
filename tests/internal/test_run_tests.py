@@ -45,3 +45,28 @@ def test_direct_environment_without_suite_is_executed(run_tests_mod, monkeypatch
 
     assert run_tests_mod.main() == 0
     assert runner.run_tests.call_args.args[0] == [environment._replace(suite_name="direct")]
+
+
+@pytest.mark.parametrize(
+    "suite_config, expected",
+    [
+        ({"snapshot": True}, True),
+        ({"services": ["testagent"]}, True),
+        ({"services": ["redis"]}, False),
+    ],
+)
+def test_uses_testagent_for_snapshots_and_explicit_services(run_tests_mod, suite_config, expected):
+    assert run_tests_mod.TestRunner._uses_testagent(suite_config) is expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("redis", "localhost"),
+        ("http://selenium-chrome:4444/wd/hub", "http://localhost:4444/wd/hub"),
+        ("http://example.com:4444/wd/hub", "http://example.com:4444/wd/hub"),
+    ],
+)
+def test_localize_service_value_for_host_network(run_tests_mod, value, expected):
+    services = {"redis", "selenium-chrome"}
+    assert run_tests_mod.TestRunner._localize_service_value(value, services) == expected

@@ -26,6 +26,8 @@ import re
 import subprocess
 import sys
 from typing import NamedTuple
+from urllib.parse import urlsplit
+from urllib.parse import urlunsplit
 
 
 # Add project root and tests to Python path to import suite and environment data.
@@ -163,6 +165,20 @@ class TestRunner:
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root)
         return set(result.stdout.strip().split()) if result.stdout.strip() else set()
 
+    @staticmethod
+    def _uses_testagent(suite_config: dict) -> bool:
+        return suite_config.get("snapshot", False) or "testagent" in suite_config.get("services", [])
+
+    @staticmethod
+    def _localize_service_value(value: str, services: set[str]) -> str:
+        if value in services:
+            return "localhost"
+        parsed = urlsplit(value)
+        if parsed.hostname not in services:
+            return value
+        netloc = parsed.netloc.replace(parsed.hostname, "localhost", 1)
+        return urlunsplit(parsed._replace(netloc=netloc))
+
     def get_git_changed_files(self, base_ref: str = "HEAD") -> set[str]:
         """Get files changed in git since base_ref.
 
@@ -223,19 +239,12 @@ class TestRunner:
     def extract_required_services(self, suites: dict[str, dict]) -> set[str]:
         """Extract all required services from selected suites."""
         services = set()
-        needs_testagent = False
 
         for suite_config in suites.values():
             suite_services = suite_config.get("services", [])
             services.update(suite_services)
-
-            # Check if any suite needs testagent (has snapshot: true)
-            if suite_config.get("snapshot", False):
-                needs_testagent = True
-
-        # Add testagent if any suite needs snapshots
-        if needs_testagent:
-            services.add("testagent")
+            if self._uses_testagent(suite_config):
+                services.add("testagent")
 
         return services
 
@@ -539,8 +548,8 @@ class TestRunner:
 
             # Extract services for this suite only
             suite_services = set(suite_config.get("services", []))
-            needs_testagent = suite_config.get("snapshot", False)
-            if needs_testagent:
+            uses_testagent = self._uses_testagent(suite_config)
+            if suite_config.get("snapshot", False):
                 suite_services.add("testagent")
 
             # Start services for this suite
@@ -559,20 +568,16 @@ class TestRunner:
             if suite_env:
                 for key, value in suite_env.items():
                     value = str(value)
-                    # Podman runs both services and the test runner with host
-                    # networking, which does not provide Compose service DNS.
-                    # Service aliases in suitespec therefore need to target the
-                    # host-network endpoint instead.
-                    if self.podman_compat and key.endswith("_HOST") and value in suite_services:
-                        value = "localhost"
+                    value = self._localize_service_value(value, suite_services)
                     env[key] = value
                     print(f"🔧 Setting {key}={value}")
 
             # Override with testagent URL if needed
-            if needs_testagent:
+            if uses_testagent:
                 testagent_url = self.get_testagent_url()
                 env["DD_TRACE_AGENT_URL"] = testagent_url
-                print(f"🔧 Setting DD_TRACE_AGENT_URL={testagent_url} for snapshot tests")
+                env["DD_TEST_AGENT_URL_OVERRIDE"] = testagent_url
+                print(f"🔧 Setting DD_TRACE_AGENT_URL={testagent_url} for agent-backed tests")
 
             # Execute each unique environment hash in this suite.
             suite_success = True
@@ -650,7 +655,7 @@ class TestRunner:
                     if suite_env:
                         for key, value in sorted(suite_env.items()):
                             env_vars_to_show.append(f"{key}={env[key]}")
-                    if needs_testagent:
+                    if uses_testagent:
                         env_vars_to_show.append(f"DD_TRACE_AGENT_URL={env.get('DD_TRACE_AGENT_URL')}")
                     if env_vars_to_show:
                         print(f"[DRY RUN] With env: {', '.join(env_vars_to_show)}")

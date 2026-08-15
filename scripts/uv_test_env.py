@@ -16,6 +16,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX_ROOT = ROOT / ".cache" / "uv-test-prefixes"
 INSTALLER_SCHEMA = b"uv-test-env-v1"
+TEST_AGENT_URL_OVERRIDE = "DD_TEST_AGENT_URL_OVERRIDE"
 
 
 def _dependency_prefix(metadata: dict[str, Any]) -> Path:
@@ -71,6 +72,8 @@ def prepare_dependencies(metadata: dict[str, Any]) -> Path:
 
 def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str]:
     env = os.environ.copy()
+    test_agent_url = env.pop(TEST_AGENT_URL_OVERRIDE, None)
+    site_packages = str(_site_packages(prefix))
     env.update(instance["env"])
     env.update(
         {
@@ -81,13 +84,16 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
             "DD_TEST_ENV_PYTHON": instance["python"],
             "DD_TEST_ENV_REQUIREMENTS": instance["packages"],
             "VIRTUAL_ENV": sys.prefix,
-            "DD_TEST_SITE_PACKAGES": str(_site_packages(prefix)),
+            "DD_TEST_SITE_PACKAGES": site_packages,
         }
     )
+    if test_agent_url:
+        env["DD_TRACE_AGENT_URL"] = test_agent_url
     current_pythonpath = env.get("PYTHONPATH")
     pythonpath = [str(ROOT)]
     if current_pythonpath:
         pythonpath.append(current_pythonpath)
+    pythonpath.append(site_packages)
     env["PYTHONPATH"] = os.pathsep.join(pythonpath)
     env["PATH"] = os.pathsep.join((str(prefix / "bin"), str(Path(sys.executable).parent), env.get("PATH", "")))
     return env
