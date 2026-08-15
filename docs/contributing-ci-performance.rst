@@ -90,8 +90,8 @@ rank does not imply that an optimization may relax the isolation rules above.
      - High
      - In the successful uv checkpoint, tracer jobs became eligible at 18:42 UTC but runner-start status updates were
        staggered from 18:49:48 through 18:54:36. Queue delays of 7:27 to 12:15 exceeded the shared-base build time.
-     - Give migration and changed-test jobs runner priority, and suppress unrelated generated suites during focused
-       iteration. Measure eligibility-to-start separately from execution.
+     - Give migration and changed-test jobs runner priority, and suppress unrelated parent and generated jobs during
+       focused iteration. Measure eligibility-to-start separately from execution.
    * - 4
      - Snapshot service cost is paid at suite granularity
      - High
@@ -485,15 +485,24 @@ Python 3.9 completed in 86 seconds, including any queue delay. All 14 tracer sha
 artifacts. The cached-runner generator is removed because no consumer remains and CI now has one native-artifact
 owner per Python version.
 
-The working diagnosis for the tracer failures is an agent-readiness race. All 14 jobs started the agent sidecar, but
-the suite model did not request the existing readiness probe. The exact failing tracer test reproduced locally without
-an agent and passed when ``scripts/run-tests`` started the agent first. The tracer suite now declares ``ddagent``
-explicitly, so local runs start it and generated CI waits for it before launching pytest. The next focused CI run must
-confirm this diagnosis before the change is treated as validated.
+Commit ``9864f0b487`` kept all six bases and smoke checks green. Base intervals were 199 to 309 seconds and the
+pre-check gate took 151 seconds. The agent-readiness change was necessary for the reproduced agent-backed assertion,
+but it was not the common CI failure: all 14 tracer shards failed once, 102 to 204 seconds after becoming eligible.
+Restricting retries to infrastructure failures prevented two redundant reruns of every deterministic failure.
 
-The tracer-only generation filter prevents unrelated test jobs from consuming runner capacity while this diagnosis is
-validated. Remove it immediately after the tracer checkpoint passes so the following run validates every preserved
-named suite through the uv path.
+The common tracer failure reproduced locally in a subprocess test. A fixture changed the working directory before
+launching plain ``python -m unittest``; the uv overlay exposed dependencies, but its ``PYTHONPATH`` did not retain the
+repository root. The child interpreter therefore could not import ``tests``. The runtime now includes the repository
+root in every child process environment. The exact three matching subprocess cases pass after the fix, as do the uv
+runtime unit tests.
+
+The same CI run exposed a documentation failure. The exact uv docs command reproduced it as four missing spelling
+dictionary entries from this document, then passed after the dictionary update. This was a documentation gate rather
+than an environment construction failure.
+
+The tracer-only generation filter prevents unrelated generated jobs from consuming runner capacity while the child
+process fix is validated. Remove it immediately after the tracer checkpoint passes so the following run validates
+every preserved named suite through the uv path.
 
 Next sequence
 -------------

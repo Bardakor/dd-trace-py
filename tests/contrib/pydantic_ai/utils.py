@@ -11,10 +11,8 @@ PYDANTIC_AI_TAGS = {
 }
 
 
-# pydantic-ai's own defaults for an agent that configures none of these, at the versions riotfile.py
-# pins. They are framework defaults rather than caller choices, which is why they are asserted here
-# once instead of being repeated per test. They are NOT a framework invariant: end_strategy defaults
-# to "graceful" at 2.x, so adding a 2.x pin will fail here on purpose.
+# These are pydantic-ai's defaults at the pinned test versions, not caller choices or framework invariants.
+# They are asserted once here; end_strategy becomes "graceful" at 2.x, so adding a 2.x pin should fail.
 DEFAULT_DATA_CONTRACTS = {"output": {"name": "str"}}
 DEFAULT_AGENT_SETTINGS = {"retries": 1, "tool_retries": 1, "end_strategy": "early"}
 

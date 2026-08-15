@@ -121,8 +121,8 @@ Many of the tests are based on "snapshots": saved copies of actual traces sent t
 
 1. Update the library and test code to generate new traces.
 2. Delete the snapshot file corresponding to your test at ``tests/snapshots/<snapshot_file>`` (if applicable).
-3. Use `docker compose up -d testagent` to start the APM test agent, and then re-run the test. Use `--pass-env` as described
-   `here <https://github.com/datadog/dd-apm-test-agent?tab=readme-ov-file#running-the-tests>`_ to ensure that your test run can talk to the test agent.
+3. Re-run the test through ``scripts/run-tests``. The runner starts an isolated APM test agent and configures the test
+   process to use it.
 
 Once the run finishes, the snapshot file will have been regenerated.
 
@@ -135,8 +135,9 @@ They use the Flask integration tests as a teaching example. Referencing these in
 
 1. Make sure a directory for your integration exists under ``tests/contrib``
 2. Create a new file ``tests/contrib/<integration>/test_<integration>_snapshot.py``
-3. Make sure a ``Venv`` instance exists in ``riotfile.py`` that references your ``contrib`` subdirectory.
-   Create one if it doesn't exist. Note the name of this ``Venv`` - this is the "test suite name".
+3. Add or extend a named node under ``tests/environments/nodes`` for the integration. Reuse the shared values in
+   ``tests/environments/core.json`` and ``tests/environments/definitions`` where possible. The node name is the test
+   environment name used by local tooling and CI.
 4. In this directory, write a simple "Hello World" application that uses the library you're
    integrating with similarly to how customers will use it. Depending on the library, this
    might be as simple as a function in the snapshot test file that imports the library.

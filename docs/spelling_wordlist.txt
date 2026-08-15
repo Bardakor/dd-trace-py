@@ -134,6 +134,7 @@ Firehose
 flamegraph
 fnmatch
 formatter
+frontend
 freezegun
 fuzzer
 fuzzers
@@ -293,7 +294,6 @@ renderers
 repo
 resolvers
 respawn
-riotfile
 rlocation
 RLock
 rollout
@@ -312,6 +312,8 @@ serializable
 serverless
 Serverless
 sha
+sharded
+sharding
 sitecustomize
 sitecustomizes
 sns
@@ -364,6 +366,7 @@ unpatch
 unpatched
 unregister
 unshallow
+unvalidated
 unvendored
 uri
 url

@@ -28,10 +28,8 @@ def set_env() -> None:
     Make sure that we don't send inner tests to Datadog.
     """
     os.environ["DD_API_KEY"] = "test-key"
-    # The riotfile enables out-of-session retries globally (_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED=1)
-    # for dd-trace-py's own test runs. These plugin tests drive the plugin via pytester.inline_run,
-    # which shares this process's environment, so we force OSR off here and let the OSR tests opt in explicitly
-    # (see test_pytest_osr.py).
+    # The test environment enables out-of-session retries globally. pytester.inline_run shares this process's
+    # environment, so force OSR off and let the OSR tests in test_pytest_osr.py opt in explicitly.
     os.environ["_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED"] = "0"
 
 
