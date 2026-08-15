@@ -19,7 +19,6 @@ ignoreFiles:
   - .test-env/**/*
   - .tox/**/*
   - .ddtox/**/*
-  - .ddriot/**/*
   - env/**/*
   - ENV/**/*
 

@@ -150,7 +150,6 @@ exclude = '''
 exclude = [
   "**/__pycache__",
   ".git",
-  ".ddriot",
   ".ddtox",
   ".sg",
   ".tox",
@@ -180,7 +179,6 @@ exclude_dirs = [
 [tool.ruff]
 # This exclude list applies to both linting and formatting
 exclude = [
-    ".ddriot",
     ".venv*",
     ".git",
     ".worktrees",
