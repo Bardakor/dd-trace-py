@@ -102,7 +102,8 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Suite selectors schedule duplicate environments
      - High
      - The baseline ``tracer`` selector included all five ``tracer-uwsgi`` hashes, adding about 16 runner-minutes.
-       Two integration-registry suite entries also selected the same hash.
+       Two integration-registry suite entries also selected the same hash. Focused CI now emits 14 exclusive tracer
+       jobs instead of 19, with no uWSGI environments in the broad selector.
      - Fixed on the migration branch: selectors are exclusive and generation rejects environment overlap.
    * - 6
      - Subprocess execution has several overlapping paths
@@ -128,8 +129,8 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Suite routing, Riot environments, uv launch metadata, YAML templates, and generated jobs repeat related
        concepts. The baseline started one Riot subprocess per suite to calculate cache keys. Full local generation
        took 24.6 seconds; the observed CI configuration job took 88 to 97 seconds.
-     - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds. Validate the CI gain, then
-       introduce one suite model with dependency, command, services, isolation, and partitioning fields.
+     - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds and the next CI job from
+       97 to 86 seconds. Next, introduce one suite model with dependency, services, isolation, and partitioning fields.
 
 Detailed findings and experiments
 ---------------------------------
@@ -235,7 +236,8 @@ an explicit allow-list entry for intentional overlap.
 
 The migration branch now applies the exclusive selector, removes a second duplicate integration-registry suite
 entry, and rejects any environment hash matched by multiple selected suites. Full local generation covered 203
-suites with zero overlaps, producing 14 tracer jobs and five dedicated uWSGI jobs. CI validation is still required.
+suites with zero overlaps, producing 14 tracer jobs and five dedicated uWSGI jobs. The focused real CI run emitted
+exactly 14 tracer jobs and no uWSGI jobs, confirming that the broad selector no longer pays for the duplicate work.
 
 Track duplicate environment executions and duplicate test node IDs per pipeline. A zero-overlap declaration should
 be enforced, not assumed.
@@ -312,8 +314,9 @@ missing locks, overlapping environment membership, unclassified snapshot tests, 
 The migration branch also removed a subprocess per suite from configuration generation. The old generator invoked
 Riot separately to list each suite's environment hashes before hashing their lock files. It now reuses the hashes
 collected during the single environment pass and calculates the same cache key in-process. Full 203-suite generation
-dropped from 24.6 to 0.69 seconds locally; the required-suite phase dropped from 24.6 to 0.31 seconds. A real CI run
-must confirm how much of the 88 to 97-second configuration job was generator time versus runner setup.
+dropped from 24.6 to 0.69 seconds locally; the required-suite phase dropped from 24.6 to 0.31 seconds. The next real
+CI configuration job dropped from 97 to 86 seconds. The smaller 11-second CI gain, and the 88-second main reference,
+show that runner startup and fixed setup now dominate this job. Add in-job phase timing before optimizing it further.
 
 Measurement log
 ---------------
@@ -365,12 +368,20 @@ Source inventory at commit ``5f6681657d``
 * After in-process cache keys: 0.69 seconds for all 203 suites, with the same tracer cache key as the shell helper.
 * Environment expansion and matching alone took about 0.1 seconds; repeated Riot subprocess startup dominated.
 
+2026-08-15, migration branch CI validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Commit ``7f56b6fc7e`` emitted 14 focused tracer jobs instead of 19 and no ``tracer-uwsgi`` jobs. This validates the
+  exclusive selector in real CI; the five uWSGI environments remain available through their dedicated suite.
+* The configuration job took 97 seconds at ``7f56b6fc7e`` and 86 seconds after in-process cache keys at
+  ``4bc8911a52``: an 11-second, or 11 percent, pending-to-success improvement.
+* Main commit ``e5c63be476`` took 88 seconds, so this single-run comparison establishes removal of the repeated local
+  work but not a stable CI regression threshold. Retain multiple runs and add internal phase timers.
+
 Next sequence
 -------------
 
 #. Add phase timing and isolation metadata without changing execution.
-#. Validate the completed tracer/uWSGI and integration-registry de-duplication in CI.
-#. Validate the in-process cache-key generation speedup in CI.
 #. Replace count-based partitioning with duration-aware packing for tracer, then compare wall time and runner minutes.
 #. Route snapshot and span-producing tests through clean-process lanes with a contamination stress test.
 #. Split non-agent tests from snapshot jobs and replace the Python 3.9 Riot wait environment.
