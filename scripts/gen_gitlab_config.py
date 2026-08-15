@@ -23,7 +23,6 @@ import datetime
 import hashlib
 import os
 import re
-import subprocess
 import typing as t
 
 
@@ -76,6 +75,7 @@ class JobSpec:
     skip_pip_cache: bool = False
 
     python_versions: t.Optional[set[str]] = None
+    pip_cache_key: str = hashlib.sha256().hexdigest()
 
     def __str__(self) -> str:
         lines = []
@@ -139,12 +139,9 @@ class JobSpec:
             env = env or {}
             env["SUITE_NAME"] = self.pattern or self.name
 
-        suite_name = env["SUITE_NAME"]
         env["PIP_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/pip"
         env["UV_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/uv"
-        env["PIP_CACHE_KEY"] = (
-            subprocess.check_output([".gitlab/scripts/get-riot-pip-cache-key.sh", suite_name]).decode().strip()
-        )
+        env["PIP_CACHE_KEY"] = self.pip_cache_key
         if not self.skip_pip_cache:
             lines.append("  cache:")
             lines.append(f"    key: v1-pip-${'{PIP_CACHE_KEY}'}-{TESTRUNNER_IMAGE_HASH}-cache")
@@ -179,6 +176,7 @@ class JobSpec:
 class SuiteVenvInfo:
     venv_count: int
     python_versions: set[str]
+    venv_hashes: set[str]
 
 
 # Module-level state: populated by gen_required_suites, consumed by gen_build_base_venvs
@@ -243,10 +241,25 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
             result[suite] = SuiteVenvInfo(
                 venv_count=len(venv_hashes[suite]),
                 python_versions=python_versions[suite],
+                venv_hashes=venv_hashes[suite],
             )
         else:
             LOGGER.warning("No riot venvs found for suite %s with pattern %s", suite, suite_patterns[suite])
     return result
+
+
+def requirements_cache_key(venv_hashes: set[str]) -> str:
+    """Return the cache key for the combined locked requirements of the supplied environments."""
+    lines = []
+    for venv_hash in sorted(venv_hashes):
+        requirements = ROOT / ".riot" / "requirements" / f"{venv_hash}.txt"
+        if requirements.is_file():
+            lines.extend(requirements.read_bytes().splitlines())
+
+    content = b"\n".join(sorted(lines))
+    if content:
+        content += b"\n"
+    return hashlib.sha256(content).hexdigest()
 
 
 def calculate_parallelism_from_venvs(venv_count: int, venvs_per_job: int, max_parallelism: int = 25) -> int:
@@ -557,8 +570,16 @@ def _gen_tests(suites: dict, required_suites: list[str]) -> None:
             stage = suite_config.pop("_stage", "core")
             clean_name = suite_config.pop("_clean_name", suite)
 
-            py_versions = suite_venv_info[suite].python_versions if suite in suite_venv_info else None
-            jobspec = JobSpec(clean_name, stage=stage, python_versions=py_versions, **suite_config)
+            venv_info = suite_venv_info.get(suite)
+            py_versions = venv_info.python_versions if venv_info is not None else None
+            pip_cache_key = requirements_cache_key(venv_info.venv_hashes if venv_info is not None else set())
+            jobspec = JobSpec(
+                clean_name,
+                stage=stage,
+                python_versions=py_versions,
+                pip_cache_key=pip_cache_key,
+                **suite_config,
+            )
             if jobspec.skip:
                 LOGGER.debug("Skipping suite %s", suite)
                 continue
