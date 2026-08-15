@@ -79,7 +79,7 @@ class JobSpec:
 
     def __str__(self) -> str:
         lines = []
-        base = ".test_base_riot"
+        base = ".test_base_hatch"
         if self.gpu:
             base += "_gpu"
         if self.snapshot:
@@ -91,15 +91,21 @@ class JobSpec:
         # Set stage
         lines.append(f"  stage: {self.stage}")
 
+        services = list(dict.fromkeys(self.services or []))
+        wait_for = [*services, *(["testagent"] if self.snapshot else [])]
+
         # Jobs need build_base_venvs artifacts
         lines.append("  needs:")
         lines.append("    - prechecks")
         if self.python_versions:
+            needed_python_versions = set(self.python_versions)
+            if wait_for:
+                needed_python_versions.add("3.9")
             lines.append("    - job: build_base_venvs")
             lines.append("      artifacts: true")
             lines.append("      parallel:")
             lines.append("        matrix:")
-            for pv in sorted(self.python_versions):
+            for pv in sorted(needed_python_versions):
                 lines.append(f'          - PYTHON_VERSION: "{pv}"')
         else:
             lines.append("    - job: build_base_venvs")
@@ -108,7 +114,6 @@ class JobSpec:
         # Preserve declared order (dedup via dict.fromkeys) rather than using a set:
         # some services depend on others being ready first (e.g. azureeventhubsemulator
         # depends on azurite), and the wait script checks readiness in argument order.
-        services = list(dict.fromkeys(self.services or []))
         if services:
             lines.append("  services:")
 
@@ -119,10 +124,6 @@ class JobSpec:
             for service in _services:
                 lines.append(f"    - {service}")
 
-        wait_for = list(services)
-        if self.snapshot:
-            wait_for.append("testagent")
-
         # Bake NIGHTLY_BUILD into script (same approach as build_base_venvs template)
         # so the value is set when tests-gen runs and is present in the child job.
         _nightly_build = _get_bool_env("NIGHTLY_BUILD")
@@ -131,7 +132,7 @@ class JobSpec:
         lines.append("    - pip cache info")
         lines.append(f'    - export NIGHTLY_BUILD="{_nightly_build}"')
         if wait_for:
-            lines.append(f"    - riot -v run -s --pass-env wait -- {' '.join(wait_for)}")
+            lines.append(f"    - ./scripts/run-hatch-test-env wait -- {' '.join(wait_for)}")
 
         env = self.env
         if not env or "SUITE_NAME" not in env:
@@ -140,6 +141,7 @@ class JobSpec:
 
         suite_name = env["SUITE_NAME"]
         env["PIP_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/pip"
+        env["UV_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/uv"
         env["PIP_CACHE_KEY"] = (
             subprocess.check_output([".gitlab/scripts/get-riot-pip-cache-key.sh", suite_name]).decode().strip()
         )
@@ -498,6 +500,8 @@ def _gen_tests(suites: dict, required_suites: list[str]) -> None:
     _global_python_versions = set()
     for info in suite_venv_info.values():
         _global_python_versions.update(info.python_versions)
+    if any(suites[s].get("services") or suites[s].get("snapshot") for s in non_skipped):
+        _global_python_versions.add("3.9")
 
     # Compute baseline parallelism. Track scalable suites (those with venv info, eligible
     # for scaling up) and the vpj map for dynamic suites.

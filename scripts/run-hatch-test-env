@@ -1,0 +1,116 @@
+#!/usr/bin/env scripts/uv-run-script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "riot==0.22.0",
+# ]
+# ///
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+# AIDEV-NOTE: Riot remains the temporary source of resolved environment metadata.
+# The test command itself always runs through Hatch with dependencies installed by uv.
+import riotfile  # noqa: E402
+
+
+def find_instances(identifier: str):
+    return [
+        instance
+        for instance in riotfile.venv.instances()
+        if instance.command is not None
+        and (
+            instance.short_hash == identifier
+            or instance.long_hash.startswith(identifier)
+            or instance.name == identifier
+        )
+    ]
+
+
+def write_metadata(identifier: str, instances) -> Path:
+    first = instances[0]
+    python = first.py._hint
+    metadata = {
+        "hash": first.short_hash,
+        "python": python,
+        "requirements": f".riot/requirements/{first.short_hash}.txt",
+        "instances": [
+            {
+                "command": instance.command,
+                "env": dict(instance.env),
+                "full_packages": instance.full_pkg_str,
+                "hash": instance.short_hash,
+                "ident": instance.ident or "",
+                "name": instance.name or "",
+                "packages": instance.pkg_str,
+                "python": instance.py._hint,
+                "python_version": instance.py.version(),
+            }
+            for instance in instances
+        ],
+    }
+    metadata_dir = ROOT / ".hatch" / "metadata"
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = metadata_dir / f"{identifier}.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True))
+    return metadata_path
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("usage: scripts/run-hatch-test-env HASH [-- TEST_ARGS...]", file=sys.stderr)
+        return 2
+
+    identifier = sys.argv[1]
+    instances = find_instances(identifier)
+    if not instances:
+        print(f"No test environment found for {identifier}", file=sys.stderr)
+        return 2
+
+    python_hints = {instance.py._hint for instance in instances}
+    if len(python_hints) != 1:
+        print(f"Environment {identifier} resolves to multiple Python versions: {sorted(python_hints)}", file=sys.stderr)
+        return 2
+
+    first = instances[0]
+    base_venv = Path(first.py.venv_path)
+    if not base_venv.is_dir():
+        result = subprocess.run(
+            ["riot", "-P", "-v", "generate", f"--python={first.py._hint}"],
+            cwd=ROOT,
+        )
+        if result.returncode:
+            return result.returncode
+        if not base_venv.is_dir():
+            print(f"Base environment was not created at {base_venv}", file=sys.stderr)
+            return 2
+
+    metadata_path = write_metadata(identifier, instances)
+
+    command_args = sys.argv[2:]
+    command = [
+        "uvx",
+        "--from",
+        "hatch==1.17.1",
+        "hatch",
+        "run",
+        f"testenv.py{first.py._hint}:python",
+        "scripts/hatch_test_env.py",
+        str(metadata_path),
+        *command_args,
+    ]
+    env = os.environ.copy()
+    env["HATCH_ENV_TYPE_VIRTUAL_PATH"] = str(base_venv)
+    return subprocess.run(command, cwd=ROOT, env=env).returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

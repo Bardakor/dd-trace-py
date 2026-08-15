@@ -62,13 +62,15 @@ You can access it by running
 
     $ scripts/ddtest
 
-Some of our test suites are managed with Riot.
+Test commands run through Hatch, and uv installs each environment's pinned dependencies. The
+resolved environment definitions and locks still come from Riot during the migration.
 
-You can run riot commands and lint checks in the test runner container with commands like these:
+You can run a known environment hash or lint checks in the test runner container with commands
+like these:
 
 .. code-block:: bash
 
-    $ scripts/ddtest riot run -p 3.10
+    $ scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- -k test_name
     $ scripts/ddtest scripts/lint style
 
 
@@ -81,46 +83,31 @@ The ``scripts/run-tests`` script handles this automatically:
 
 .. code-block:: bash
 
-    # Add riot arguments to avoid unnecessary compilation
-    $ scripts/run-tests tests/contrib/django/ -- -s
-
-    # Add pytest arguments for test selection
-    $ scripts/run-tests tests/contrib/django/ -- -- -k test_specific_function
-
-    # Add both riot (first) and pytest (second) arguments
-    $ scripts/run-tests ddtrace/contrib/django/patch.py -- -s -- -vvv -s --tb=short
+    # Add test command arguments for selection and output
+    $ scripts/run-tests tests/contrib/django/ -- -k test_specific_function
+    $ scripts/run-tests ddtrace/contrib/django/patch.py -- -vvv -s --tb=short
 
     # Run specific test functions
     $ scripts/run-tests tests/contrib/flask/ -- -k "test_request or test_response"
 
-**Manual way: Direct riot commands**
+**Manual way: Run a Hatch environment**
 
 If you prefer manual control:
 
-1. Note the names of the tests you care about - these are the "test names".
-2. Find the ``Venv`` in the `riotfile <https://github.com/DataDog/dd-trace-py/blob/32b88eadc00e05cd0bc2aec587f565cc89f71229/riotfile.py#L426>`_
-   whose ``command`` contains the tests you're interested in. Note the ``Venv``'s ``name`` - this is the
-   "suite name".
-3. Find the suite in the file `./tests/contrib/suitespec.yml <https://github.com/DataDog/dd-trace-py/blob/2a46a7ddfc3d8e0d27ff59ec03bae69f0ef40db1/tests/contrib/suitespec.yml#L2>`_
-   whose ``pattern`` is equal to the suite name. Note the ``docker_services`` section of the directive, if present -
-   these are the "suite services".
-4. Start the suite services, if applicable, with ``$ docker compose up -d service1 service2``.
-5. Start the test-runner Docker container with ``$ scripts/ddtest``.
-6. In the test-runner shell, run the tests with ``$ riot -v run --pass-env -p 3.10 <suite_name> -- -s -vv -k 'test_name1 or test_name2'``.
+1. Use ``scripts/run-tests --list <test_path>`` to find a matching environment hash.
+2. Find the suite in ``tests/suitespec.yml`` and start any listed services with
+   ``docker compose up -d service1 service2``.
+3. Run ``scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- <test arguments>``.
 
-Anatomy of a Riot Command
--------------------------
+Anatomy of a Hatch Test Command
+-------------------------------
 
 .. code-block:: bash
 
-    $ riot -v run --pass-env -s -p 3.10 <suite_name> -- -s -vv -k 'test_name1 or test_name2'
+    $ scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- -s -vv -k 'test_name1 or test_name2'
 
-* ``-v``: Print verbose output
-* ``--pass-env``: Pass all environment variables in the current shell to the pytest invocation
-* ``-s``: Skips base install. Ensure you have already generated the base virtual environment(s) before using this flag.
-* ``-p 3.10``: Run the tests using Python 3.10. You can change the version string if you want.
-* ``<suite_name>``: A regex matching the names of the Riot ``Venv`` instances to run
-* ``--``: Everything after this gets treated as a ``pytest`` argument
+* ``<environment_hash>`` selects one pinned Python and dependency combination.
+* ``--`` passes everything after it to the environment's test command.
 * ``-s``: Make potential uses of ``pdb`` work properly
 * ``-vv``: Be loud about which tests are being run
 * ``-k 'test1 or test2'``: Test selection by `keyword expression <https://docs.pytest.org/en/7.1.x/how-to/usage.html#specifying-which-tests-to-run>`_
@@ -136,8 +123,8 @@ To fix this:
     # outside of the testrunner shell
     $ docker compose up -d testagent
 
-    # inside the testrunner shell, started with scripts/ddtest
-    $ DD_AGENT_PORT=9126 riot -v run --pass-env ...
+    # run the selected Hatch environment against the service
+    $ DD_TRACE_AGENT_URL=http://testagent:9126 scripts/ddtest scripts/run-hatch-test-env <environment_hash>
 
 Why are my Docker tests failing with permission errors on Linux?
 -----------------------------------------------------------------
@@ -170,8 +157,8 @@ After setting this up, run your tests normally:
 
 The ``docker-compose.override.yml`` file is git-ignored and won't be committed, so each developer can have their own local configuration.
 
-Build issues when running tests with Riot
------------------------------------------
+Build issues when running tests with Hatch
+------------------------------------------
 
 If you encounter build failures, CMake errors, or stale native extension issues when running tests:
 
@@ -179,20 +166,18 @@ If you encounter build failures, CMake errors, or stale native extension issues 
 - **Using scripts/ddtest:** The project is mounted from the host, so run ``scripts/clean`` on the host first.
   The container sees the cleaned project on the next run.
 
-Then run Riot **without** the ``-s`` flag so that ddtrace is rebuilt from source. The ``-s`` flag skips the base install; omitting it forces a fresh build:
+Then run the selected environment again. ``scripts/run-tests`` rebuilds the shared ddtrace base before Hatch starts the test command:
 
 .. code-block:: bash
 
-    $ riot -v run --pass-env -p 3.10 <suite_name> -- -vv -k 'test_name'
-
-Once the build succeeds, you can use ``-s`` again for faster subsequent runs.
+    $ scripts/run-tests --venv <environment_hash> -- -vv -k 'test_name'
 
 Why is my CI run failing with a message about requirements files?
 -----------------------------------------------------------------
 
 ``.riot/requirements`` contains requirements files generated with ``pip-compile`` for every environment specified
-by ``riotfile.py``. Riot uses these files to build its environments, and they do not get rebuilt automatically
-when the riotfile changes. Thus, if you make changes to the riotfile, you need to rebuild them.
+by ``riotfile.py``. Hatch and uv consume these pinned files, and they do not get rebuilt automatically when the
+riotfile changes. Thus, if you make changes to the riotfile, you need to rebuild them.
 
 .. code-block:: bash
 
@@ -238,8 +223,9 @@ The library includes automated SLO checks that monitor performance thresholds fo
 How do I add a new test suite?
 ------------------------------
 
-We use `riot <https://ddriot.readthedocs.io/en/latest/>`_, a Python virtual environment constructor, to run the test suites.
-It is necessary to create a new ``Venv`` instance in ``riotfile.py`` if it does not exist already. It can look like this:
+Hatch runs the test suites and uv installs their dependencies. During the configuration migration, new matrices
+are still declared as ``Venv`` instances in ``riotfile.py`` so the existing lock compiler remains authoritative.
+It can look like this:
 
 .. code-block:: python
 

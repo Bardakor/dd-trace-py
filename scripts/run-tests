@@ -11,7 +11,7 @@
 
 This script helps developers run the appropriate test suites based on changed files.
 It maps source files to their corresponding test suites and provides granular control
-over which specific riot venvs to run.
+over which specific test environments to run.
 
 Note: This runs entire test suites, not individual test files.
 """
@@ -502,7 +502,7 @@ class TestRunner:
         self,
         selected_venvs: list[RiotVenv],
         matching_suites: dict[str, dict],
-        riot_args: list[str] = None,
+        runner_args: list[str] = None,
         dry_run: bool = False,
     ) -> bool:
         """Execute the selected venvs, grouped by suite with per-suite service management."""
@@ -545,6 +545,8 @@ class TestRunner:
                 print(msg)
             else:
                 print(f"   • Suite '{suite_name}': {len(venvs)} venv(s)")
+
+        built_python_versions = set()
 
         # Execute each suite with its own service lifecycle
         for suite_name, venvs in venvs_by_suite.items():
@@ -592,45 +594,43 @@ class TestRunner:
                 env["DD_TRACE_AGENT_URL"] = testagent_url
                 print(f"🔧 Setting DD_TRACE_AGENT_URL={testagent_url} for snapshot tests")
 
-            # Execute each unique venv hash in this suite
-            # Note: riot will run all instances for each hash (different commands, env vars, etc.)
+            # Execute each unique environment hash in this suite.
             suite_success = True
 
-            # Phase 1: Build/verify venvs sequentially under a file lock.
-            # This prevents concurrent builds from fighting over shared resources
-            # (sccache, cargo installs, pip). The first build compiles Rust/C/Cython;
-            # subsequent builds are fast cache hits. If venvs are already built,
-            # riot detects this and the build phase completes near-instantly.
-            lock_path = self.root / ".riot" / ".build.lock"
+            # Build ddtrace once per Python, then let Hatch reuse that base for every lock.
+            lock_path = self.root / ".hatch" / ".build.lock"
             lock_path.parent.mkdir(parents=True, exist_ok=True)
 
-            for venv in venvs:
+            python_versions = [
+                version
+                for version in dict.fromkeys(venv.python_version for venv in venvs)
+                if version not in built_python_versions
+            ]
+            for python_version in python_versions:
                 build_cmd = [
                     str(self.root / "scripts" / "ddtest"),
                     "riot",
+                    "-P",
                     "-v",
-                    "run",
-                    "--pass-env",
-                    venv.hash,
-                    "--",
-                    "--collect-only",
-                    "-q",
+                    "generate",
+                    f"--python={python_version}",
                 ]
 
                 if dry_run:
-                    print(f"[DRY RUN] Would build venv (under lock): {' '.join(build_cmd)}")
+                    print(f"[DRY RUN] Would build ddtrace for Python {python_version}: {' '.join(build_cmd)}")
                 else:
-                    print(f"\n🔨 Building venv ({venv.display_name}): {venv.hash}")
+                    print(f"\n🔨 Building ddtrace for Python {python_version}")
                     lock_file = open(lock_path, "w")
                     try:
                         fcntl.flock(lock_file, fcntl.LOCK_EX)
                         print("   🔒 Acquired build lock")
                         result = subprocess.run(build_cmd, env=env, cwd=self.root)
                         if result.returncode != 0:
-                            print(f"❌ Build failed for {venv.display_name} (exit code {result.returncode})")
+                            print(f"❌ Build failed for Python {python_version} (exit code {result.returncode})")
                             suite_success = False
                             break
-                        print("   ✅ Venv built successfully")
+                        built_python_versions.add(python_version)
+                        print("   ✅ Base environment built successfully")
                     finally:
                         fcntl.flock(lock_file, fcntl.LOCK_UN)
                         lock_file.close()
@@ -643,35 +643,24 @@ class TestRunner:
                 print(f"\n❌ Suite '{suite_name}' failed during build phase. Stopping execution.")
                 return False
 
-            # Phase 2: Run tests with --skip-base-install (venvs are already built).
+            command_args = list(runner_args or [])
+            if command_args and command_args[0] == "--":
+                command_args = command_args[1:]
+            elif "--" in command_args:
+                command_args = command_args[command_args.index("--") + 1 :]
+
             for venv in venvs:
                 # Count how many instances share this hash in this suite
                 instances_with_same_hash = [v for v in all_venvs_by_suite[suite_name] if v.hash == venv.hash]
                 num_instances = len(instances_with_same_hash)
 
-                # Execute using ddtest with the specific venv hash
                 cmd = [
                     str(self.root / "scripts" / "ddtest"),
-                    "riot",
-                    "-v",
-                    "run",
-                    "--pass-env",
-                    "-s",
+                    "./scripts/run-hatch-test-env",
                     venv.hash,
+                    "--",
+                    *command_args,
                 ]
-
-                # Add riot args if provided, filtering out riot's -s/--skip-base-install
-                # (since we already add it) but only before the pytest separator "--".
-                # After "--", args belong to pytest where -s means something different
-                # (disable output capture).
-                if riot_args:
-                    past_pytest_separator = False
-                    for arg in riot_args:
-                        if arg == "--":
-                            past_pytest_separator = True
-                            cmd.append(arg)
-                        elif past_pytest_separator or arg not in ("-s", "--skip-base-install"):
-                            cmd.append(arg)
 
                 if dry_run:
                     print(f"[DRY RUN] Would execute: {' '.join(cmd)}")
@@ -825,14 +814,8 @@ Examples:
   # Show what would be run without executing
   scripts/run-tests --dry-run
 
-  # Pass additional arguments to riot
-  scripts/run-tests ddtrace/contrib/django/patch.py -- -s
-
-  # Pass additional arguments to pytest
-  scripts/run-tests ddtrace/contrib/django/patch.py -- -- -vvv -s --tb=short
-
-  # Pass additional arguments to riot (first) and pytest (second)
-  scripts/run-tests ddtrace/contrib/django/patch.py -- -s -- -vvv -k api --tb=short
+  # Pass additional arguments to the test command
+  scripts/run-tests ddtrace/contrib/django/patch.py -- -vvv -k api --tb=short
         """,
     )
 
@@ -861,14 +844,14 @@ Examples:
         ),
     )
 
-    # Parse args, but handle -- separator for riot args
+    # Parse args, but handle the separator for test command arguments.
     if "--" in sys.argv:
         separator_idx = sys.argv.index("--")
         script_args = sys.argv[1:separator_idx]
-        riot_args = sys.argv[separator_idx + 1 :]
+        runner_args = sys.argv[separator_idx + 1 :]
     else:
         script_args = sys.argv[1:]
-        riot_args = []
+        runner_args = []
 
     args = parser.parse_args(script_args)
 
@@ -896,7 +879,8 @@ Examples:
                     venvs_in_suite = runner.get_riot_venvs(pattern, suite_name=suite_name)
                     if any(v.hash == venv.hash for v in venvs_in_suite):
                         # Found the suite for this venv - update venv with suite_name and add to suites
-                        venv_with_suite = venv._replace(suite_name=suite_name)
+                        matching_venv = next(v for v in venvs_in_suite if v.hash == venv.hash)
+                        venv_with_suite = matching_venv._replace(suite_name=suite_name)
                         venvs_with_suite.append(venv_with_suite)
 
                         if suite_name not in matching_suites:
@@ -910,7 +894,7 @@ Examples:
             print("⚠️  Could not determine suite information for venvs, running without service management")
             matching_suites = {}
 
-        success = runner.run_tests(venvs_with_suite, matching_suites, riot_args=riot_args, dry_run=args.dry_run)
+        success = runner.run_tests(venvs_with_suite, matching_suites, runner_args=runner_args, dry_run=args.dry_run)
         return 0 if success else 1
 
     # Normal flow: determine which files to check
@@ -960,7 +944,7 @@ Examples:
     selected_venvs = runner.interactive_venv_selection(matching_suites)
 
     # Execute tests
-    success = runner.run_tests(selected_venvs, matching_suites, riot_args=riot_args, dry_run=args.dry_run)
+    success = runner.run_tests(selected_venvs, matching_suites, runner_args=runner_args, dry_run=args.dry_run)
 
     return 0 if success else 1
 

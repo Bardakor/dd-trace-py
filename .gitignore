@@ -71,6 +71,7 @@ htmlcov/
 .ddtox/
 .ddriot/
 .coverage
+.hatch/
 .coverage.*
 .cache
 test-results/

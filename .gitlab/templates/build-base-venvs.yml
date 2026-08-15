@@ -40,7 +40,9 @@ build_base_venvs:
     riot -P -v generate --python=$PYTHON_VERSION
     .riot/venv_py3*/bin/pip freeze
     echo "Running smoke tests"
-    riot -v run -s --python=$PYTHON_VERSION smoke_test
+    smoke_hash="$(riot list --hash-only --python="$PYTHON_VERSION" '^smoke_test$')"
+    test -n "$smoke_hash"
+    ./scripts/run-hatch-test-env "$smoke_hash"
     sccache --show-stats || true
   artifacts:
     name: venv_$PYTHON_VERSION
