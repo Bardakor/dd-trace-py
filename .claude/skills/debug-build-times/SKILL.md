@@ -22,7 +22,9 @@ For architecture, root causes, key files, and env vars see
 
 ## Quick Start
 
-On a warm run (extensions cached) `pip install -e .` should complete in **under 30s**.
+CI builds one shared base artifact per Python version without a second extension-cache layer. Use
+`ext_cache.py` only to investigate local warm-build behavior. A restored `pip install -e .` should
+complete in **under 30s**.
 
 Create a throwaway `test_venv_cache.sh` in the repo root (don't commit it), run it,
 then inspect the metadata files:
@@ -41,27 +43,14 @@ set -euo pipefail
 
 PYTHON_VERSION="${1:-3.12}"
 CACHE_ROOT="/tmp/dd_ext_cache_test"
-# IMPORTANT: use a version-specific venv to match CI's ext_cache_venv${PYTHON_VERSION} pattern.
-# ext_cache.py uses sys.executable to call setup.py ext_hashes, which computes extension
-# targets with the running Python's suffix (e.g. cpython-313).  If the venv Python doesn't
-# match the build Python, cache save/restore silently operates on the wrong suffix and the
-# ext_cache becomes a no-op for that Python version.
-EXT_CACHE_VENV="/tmp/dd_ext_cache_venv${PYTHON_VERSION}"
 METADATA_COLD="debug_ext_metadata_cold.txt"
 METADATA_WARM="debug_ext_metadata_warm.txt"
 
 header() { echo; echo "══════════════════════════════════════════"; echo "  $*"; echo "══════════════════════════════════════════"; }
 step()   { echo "── $*"; }
 
-# One-time venv for running ext_cache.py (mirrors CI's EXT_CACHE_VENV)
-if [ ! -d "$EXT_CACHE_VENV" ]; then
-    step "Creating ext_cache venv (python${PYTHON_VERSION})"
-    "python${PYTHON_VERSION}" -m venv "$EXT_CACHE_VENV"
-    "$EXT_CACHE_VENV/bin/pip" install -q wheel cmake setuptools_rust Cython
-fi
-
-cache_restore() { "$EXT_CACHE_VENV/bin/python" scripts/ext_cache.py --root "$CACHE_ROOT" restore; }
-cache_save()    { "$EXT_CACHE_VENV/bin/python" scripts/ext_cache.py --root "$CACHE_ROOT" save; }
+cache_restore() { uv run --script --python "python${PYTHON_VERSION}" scripts/ext_cache.py --root "$CACHE_ROOT" restore; }
+cache_save()    { uv run --script --python "python${PYTHON_VERSION}" scripts/ext_cache.py --root "$CACHE_ROOT" save; }
 
 run_build() {
     local label="$1" metadata_out="$2"
@@ -112,7 +101,7 @@ print(f"DEBUG {ext.name}: ext_path={ext_path} exists={ext_path.exists()} needs_r
 ```
 
 ```bash
-.test-env/uv-bases/py3.13/bin/pip --disable-pip-version-check install -e . -v 2>&1 | grep "DEBUG\|skipping\|building"
+.test-env/uv-bases/py3.13/bin/python -m pip --disable-pip-version-check install -e . -v 2>&1 | grep "DEBUG\|skipping\|building"
 ```
 
 ### Step 4: Find the newer source
@@ -134,7 +123,7 @@ print(newer)
 ### Step 5: Check ext_cache is actually restoring
 
 ```bash
-/tmp/dd_ext_cache_venv3.13/bin/python scripts/ext_cache.py --root /tmp/dd_ext_cache_test restore 2>&1 | grep -i "warning\|error\|restoring"
+uv run --script --python python3.13 scripts/ext_cache.py --root /tmp/dd_ext_cache_test restore 2>&1 | grep -i "warning\|error\|restoring"
 ```
 
 Warnings about "No cached files found" mean the hash changed between save and restore.

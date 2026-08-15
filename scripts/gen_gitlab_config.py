@@ -18,7 +18,6 @@ file. The function will be called automatically when this script is run.
 
 from collections import defaultdict
 from dataclasses import dataclass
-import datetime
 import hashlib
 import os
 import re
@@ -160,7 +159,12 @@ class JobSpec:
             lines.append(f"  parallel: {self.parallelism}")
 
         if self.retry is not None:
-            lines.append(f"  retry: {self.retry}")
+            lines.append("  retry:")
+            lines.append(f"    max: {self.retry}")
+            lines.append("    when:")
+            lines.append("      - api_failure")
+            lines.append("      - runner_system_failure")
+            lines.append("      - stuck_or_timeout_failure")
 
         if self.timeout is not None:
             lines.append(f"  timeout: {self.timeout}")
@@ -771,23 +775,8 @@ prechecks:
         )
 
 
-def gen_cached_testrunner() -> None:
-    """Generate the cached testrunner job."""
-    with TESTS_GEN.open("a") as f:
-        f.write(
-            template(
-                "cached-testrunner",
-                current_week=datetime.datetime.now().isocalendar().week,
-                testrunner_image_hash=TESTRUNNER_IMAGE_HASH,
-            )
-        )
-
-
 def gen_build_base_venvs() -> None:
     """Generate the list of base jobs for building virtual environments.
-
-    We need to generate this dynamically from a template because it depends
-    on the cached testrunner job, which is also generated dynamically.
 
     Only builds venvs for the Python versions actually needed by the required suites,
     falling back to all supported versions when no venv info is available.

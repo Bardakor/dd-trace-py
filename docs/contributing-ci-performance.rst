@@ -86,45 +86,51 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Use historical duration weights at environment and test-node level. Split slow environments and start the
        slowest safe units first.
    * - 3
+     - Critical test jobs wait behind unrelated work
+     - High
+     - In the successful uv checkpoint, tracer jobs became eligible at 18:42 UTC but runner-start status updates were
+       staggered from 18:49:48 through 18:54:36. Queue delays of 7:27 to 12:15 exceeded the shared-base build time.
+     - Give migration and changed-test jobs runner priority, and suppress unrelated generated suites during focused
+       iteration. Measure eligibility-to-start separately from execution.
+   * - 4
      - Snapshot service cost is paid at suite granularity
      - High
      - 118 suite entries request the test agent. The whole job starts it even when only part of the selected test
        command performs snapshots.
      - Split reusable tests from agent-backed tests, then run the latter through isolated parallel lanes.
-   * - 4
+   * - 5
      - Shared build and cache setup remains on the critical path
      - High
-     - Reusing one ddtrace base per Python version works, but observed base builds took 243 to 340 seconds before
-       dependent jobs could run. Each lane also created a nested extension-cache venv and installed three unlocked
-       build packages.
-     - The nested venv is removed on the migration branch. Time artifact transfer and uv materialization separately,
-       then make immutable artifacts available per Python version as soon as they are ready.
-   * - 5
+     - Reusing one ddtrace base per Python version works. The validated uv checkpoint took 192 to 281 seconds per
+       base. Removing the nested extension-cache setup changed all six producers from failure to success.
+     - Time artifact transfer and uv materialization separately, then make each immutable Python artifact available
+       to its consumers without waiting for unrelated versions.
+   * - 6
      - Suite selectors schedule duplicate environments
      - High
      - The baseline ``tracer`` selector included all five ``tracer-uwsgi`` hashes, adding about 16 runner-minutes.
        Two integration-registry suite entries also selected the same hash. Focused CI now emits 14 exclusive tracer
        jobs instead of 19, with no uWSGI environments in the broad selector.
      - Fixed on the migration branch: selectors are exclusive and generation rejects environment overlap.
-   * - 6
+   * - 7
      - Subprocess execution has several overlapping paths
      - Medium
      - The tree has 821 ``subprocess`` marker references, 562 ``run_in_subprocess`` references, and 329 direct
        child-process calls. The legacy unittest helper starts a full unittest or pytest command per test.
      - Instrument startup, import, body, and cleanup time; converge on one isolation launcher without batching span
        tests into a process.
-   * - 7
+   * - 8
      - Whole-shard retries amplify deterministic failures
      - Medium
      - 44 suite entries allow two retries. A deterministic failure can therefore consume three full shard runs.
      - Restrict CI retries to runner and service failures; retry an isolated test only when its failure class permits.
-   * - 8
+   * - 9
      - Broad, concurrently written caches
      - Medium, unmeasured
      - Generated jobs cache all of ``.cache`` under a suite key. Parallel shards can restore and update the same
        broad cache, mixing pip, uv, dependency prefixes, and compiler data.
      - Record cache transfer bytes and time, then separate immutable consumer caches from a single producer.
-   * - 9
+   * - 10
      - Test configuration has multiple sources and slow generated copies
      - Medium
      - Suite routing, uv environment nodes, launch metadata, YAML templates, and generated jobs still repeat related
@@ -222,9 +228,10 @@ Proposed experiment:
    without uploading the same data concurrently.
 #. Keep compiler caches separate from pip and uv caches so their policies and retention can differ.
 
-The migration branch now runs ``ext_cache.py`` as a uv script with declared build dependencies. This removes the
-per-Python ``ext_cache_venv`` lifecycle and its repeated direct pip install while preserving the exact interpreter
-needed to calculate extension suffixes.
+The migration branch first converted ``ext_cache.py`` to a standalone uv script, removing its per-Python management
+venv. Real CI then showed that the extension-cache setup still failed before the base build on every Python version.
+Removing that second native-artifact layer made all six base producers pass. ``ext_cache.py`` remains a local
+warm-build diagnostic; CI has one artifact owner per Python version.
 
 5. Reject overlapping suite membership
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -273,6 +280,9 @@ Suite-level ``retry: 2`` reruns a complete GitLab job. This is appropriate for a
 but costly and misleading for an assertion or deterministic setup failure. Prefer CI retry conditions for runner and
 service failures. If a known flaky test must be retried, rerun that isolated node in a fresh process and retain all
 attempt results.
+
+Generated uv jobs now apply the configured retry count only to API, runner-system, and stuck-or-timeout failures.
+``script_failure`` is intentionally excluded, so a deterministic test or setup failure reports after one shard run.
 
 8. Split cache ownership
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -468,6 +478,22 @@ the internal DDCI log wrapper could not reach GitLab without AppGate. The next d
 ``.cached_testrunner`` from the base producer. This keeps the producer independent from ``ext_cache.py`` and tests the
 uv base build directly. It also removes a duplicated native-artifact layer: the base environment is itself the native
 build artifact consumed by every test job.
+
+Commit ``6ca85c94ad`` validated that diagnosis. All six base producers passed, with status-to-status elapsed times of
+192 to 281 seconds, followed by six successful native smoke jobs. Five smoke jobs completed in 26 to 37 seconds;
+Python 3.9 completed in 86 seconds, including any queue delay. All 14 tracer shards then started from the shared base
+artifacts. The cached-runner generator is removed because no consumer remains and CI now has one native-artifact
+owner per Python version.
+
+The working diagnosis for the tracer failures is an agent-readiness race. All 14 jobs started the agent sidecar, but
+the suite model did not request the existing readiness probe. The exact failing tracer test reproduced locally without
+an agent and passed when ``scripts/run-tests`` started the agent first. The tracer suite now declares ``ddagent``
+explicitly, so local runs start it and generated CI waits for it before launching pytest. The next focused CI run must
+confirm this diagnosis before the change is treated as validated.
+
+The tracer-only generation filter prevents unrelated test jobs from consuming runner capacity while this diagnosis is
+validated. Remove it immediately after the tracer checkpoint passes so the following run validates every preserved
+named suite through the uv path.
 
 Next sequence
 -------------

@@ -297,9 +297,10 @@ These environment variables modify aspects of the build process.
 Debugging Build Performance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The build system compiles many native extensions (CMake C++, Cython, Rust). In CI,
-``ext_cache.py`` caches compiled ``.so`` files between runs. On a warm run (extensions
-already in cache), the entire ``pip install -e .`` should complete in **under 30s**.
+The build system compiles many native extensions (CMake C++, Cython, Rust). CI builds one
+shared base environment per Python version and passes it to test jobs as an artifact.
+``ext_cache.py`` remains available for local warm-build investigation, where a restored
+``pip install -e .`` should complete in **under 30s**.
 
 How the Build Works
 ^^^^^^^^^^^^^^^^^^^
@@ -324,7 +325,7 @@ uv creates and seeds the shared base. The editable native project build intentio
 matching the previously proven build path. uv remains responsible for compiling locks, installing
 test dependencies, caching dependency prefixes, and launching commands.
 
-``ext_cache.py`` flow (CI and local testing):
+Optional ``ext_cache.py`` local diagnostic flow:
 
 .. code-block:: text
 

