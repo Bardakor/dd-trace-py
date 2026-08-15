@@ -109,3 +109,24 @@ def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_
     assert 'if [[ "false" == "true" ]]' in config
     assert "$(curl" not in config
     assert "$DD_API_KEY" not in config
+
+
+def test_collect_all_suite_venv_info_rejects_overlapping_suite_membership(gen_gitlab_config_mod):
+    class FakeInstance:
+        name = "tracer-uwsgi"
+        short_hash = "abc1234"
+        py = types.SimpleNamespace(_hint="3.12")
+
+        def matches_pattern(self, pattern):
+            return pattern.search(self.name) is not None
+
+    riotfile = types.SimpleNamespace(venv=types.SimpleNamespace(instances=lambda: [FakeInstance()]))
+
+    with mock.patch.dict(sys.modules, {"riotfile": riotfile}):
+        with pytest.raises(ValueError, match="abc1234: tracer, tracer-uwsgi"):
+            gen_gitlab_config_mod.collect_all_suite_venv_info(
+                {
+                    "tracer": "tracer",
+                    "tracer-uwsgi": "tracer-uwsgi",
+                }
+            )

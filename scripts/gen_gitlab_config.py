@@ -215,6 +215,7 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
 
     venv_hashes: dict[str, set] = {s: set() for s in compiled}
     python_versions: dict[str, set] = {s: set() for s in compiled}
+    suites_by_venv_hash: dict[str, set[str]] = defaultdict(set)
 
     for inst in riotfile.venv.instances():  # type: ignore[attr-defined]
         if not inst.name:
@@ -223,9 +224,18 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
         for suite, regex in compiled.items():
             if inst.matches_pattern(regex):  # type: ignore[attr-defined]
                 venv_hashes[suite].add(inst.short_hash)  # type: ignore[attr-defined]
+                suites_by_venv_hash[inst.short_hash].add(suite)  # type: ignore[attr-defined]
                 # Only collect properly versioned hints (e.g. "3.10"), skip bare "3"
                 if re.match(r"^3\.\d+$", hint):
                     python_versions[suite].add(hint)
+
+    overlaps = {venv_hash: suites for venv_hash, suites in suites_by_venv_hash.items() if len(suites) > 1}
+    if overlaps:
+        details = "; ".join(
+            f"{venv_hash}: {', '.join(sorted(matched_suites))}"
+            for venv_hash, matched_suites in sorted(overlaps.items())
+        )
+        raise ValueError(f"Test environments matched multiple suites: {details}")
 
     result: dict[str, SuiteVenvInfo] = {}
     for suite in compiled:

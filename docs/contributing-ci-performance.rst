@@ -101,9 +101,9 @@ rank does not imply that an optimization may relax the isolation rules above.
    * - 5
      - Suite selectors schedule duplicate environments
      - High
-     - ``tracer`` currently selects 19 hashes, including all five hashes selected by ``tracer-uwsgi``. Those five
-       environments are run twice when both suites are selected, adding about 16 runner-minutes in the observed run.
-     - Make the tracer selector exclusive and add a generated-config overlap check.
+     - The baseline ``tracer`` selector included all five ``tracer-uwsgi`` hashes, adding about 16 runner-minutes.
+       Two integration-registry suite entries also selected the same hash.
+     - Fixed on the migration branch: selectors are exclusive and generation rejects environment overlap.
    * - 6
      - Subprocess execution has several overlapping paths
      - Medium
@@ -123,10 +123,11 @@ rank does not imply that an optimization may relax the isolation rules above.
        broad cache, mixing pip, uv, dependency prefixes, and compiler data.
      - Record cache transfer bytes and time, then separate immutable consumer caches from a single producer.
    * - 9
-     - Test configuration has multiple sources and generated copies
-     - Medium maintenance risk
+     - Test configuration has multiple sources and slow generated copies
+     - Medium
      - Suite routing, Riot environments, uv launch metadata, YAML templates, and generated jobs repeat related
-       concepts. ``tests.yml`` is copied before jobs are appended.
+       concepts. ``tests.yml`` is copied before jobs are appended. Local generation for all 203 suites took 24.6
+       seconds; the observed CI configuration job took 88 seconds.
      - Introduce one suite model with dependency, command, services, isolation, and partitioning fields.
 
 Detailed findings and experiments
@@ -230,6 +231,10 @@ would therefore save about 16.2 runner-minutes in that run, but not its 770-seco
 The immediate fix is an exclusive tracer selector. The durable fix is generated membership that does not depend on
 overlapping regular expressions. Add a pre-check that reports every hash assigned to more than one suite and requires
 an explicit allow-list entry for intentional overlap.
+
+The migration branch now applies the exclusive selector, removes a second duplicate integration-registry suite
+entry, and rejects any environment hash matched by multiple selected suites. Full local generation covered 203
+suites with zero overlaps, producing 14 tracer jobs and five dedicated uWSGI jobs. CI validation is still required.
 
 Track duplicate environment executions and duplicate test node IDs per pipeline. A zero-overlap declaration should
 be enforced, not assumed.
@@ -339,6 +344,7 @@ Source inventory at commit ``5f6681657d``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * 19 hashes matched ``tracer``; five matched ``tracer-uwsgi``; the five were a complete overlap.
+* One additional hash matched both ``integration_registry`` and ``contrib::integration_registry``.
 * 118 suite entries set ``snapshot: true``.
 * 504 snapshot marker or decorator references occurred across 78 Python files; 902 JSON snapshots existed.
 * 821 pytest ``subprocess`` marker references, 562 ``run_in_subprocess`` references, and 329 direct child-process calls
@@ -349,7 +355,7 @@ Next sequence
 -------------
 
 #. Add phase timing and isolation metadata without changing execution.
-#. Remove the tracer/uWSGI overlap and add overlap validation.
+#. Validate the completed tracer/uWSGI and integration-registry de-duplication in CI.
 #. Replace count-based partitioning with duration-aware packing for tracer, then compare wall time and runner minutes.
 #. Route snapshot and span-producing tests through clean-process lanes with a contamination stress test.
 #. Split non-agent tests from snapshot jobs and replace the Python 3.9 Riot wait environment.
