@@ -1,5 +1,5 @@
-# Temporary migration checkpoint: keep the parent pipeline limited to uv test generation.
-# Revert this commit after the all-suite validation run.
+# Temporary migration checkpoint: limit CI to representative subprocess-heavy uv suites.
+# Restore the normal parent pipeline after the all-suite migration is stable.
 stages:
   - tests
 
@@ -31,7 +31,13 @@ tests-gen:
       if [ -z "${GH_TOKEN:-}" ]; then
         export GH_TOKEN=$(dd-octo-sts token --scope DataDog/dd-trace-py --policy gitlab.github-access.read)
       fi
-    - scripts/gen_gitlab_config.py --verbose
+    - |
+      scripts/gen_gitlab_config.py --verbose \
+        --suite internal \
+        --suite appsec::appsec_integrations_fastapi \
+        --suite appsec::appsec_integrations_flask_testagent \
+        --suite ci_visibility::pytest:snapshot \
+        --suite ci_visibility::selenium
   needs: []
   artifacts:
     paths:
