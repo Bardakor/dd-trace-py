@@ -559,6 +559,19 @@ passes all four tests in 13.31 seconds, and the startup-hook regression remains 
 suite service aliases and the test-agent URL to host-network endpoints, allowing CI failures to be reproduced with
 the same command. Repeat the representative slice before returning to the 855-context run.
 
+Commit ``f66d678149`` validated the shared subprocess fix. All 14 CI Visibility pytest snapshot jobs and both
+Selenium jobs passed, as did three of six internal shards. All six base producers, smoke checks, prechecks, and the
+documentation job also passed. The remaining failures were 17 AppSec FastAPI jobs, two AppSec Flask test-agent jobs,
+and internal shards one, three, and five.
+
+The 19 AppSec jobs did not reach pytest. They explicitly started ``testagent`` but inherited the default localhost
+URL for their readiness probe; only snapshot jobs exported the service alias before waiting. Generated jobs now
+export ``http://testagent:9126`` before probing an explicitly requested test agent. The local container runner also
+forwards its host-network URL override into the test container. With that override, the exact Python 3.12 FastAPI
+environment passes 51 tests and skips five. The three internal CI shard failures remain a separate investigation;
+the complete first failing Python 3.11 environment passes 823 tests locally, with six skips and two expected failures.
+This is not evidence that those CI failures are fixed, so they remain in the next focused checkpoint.
+
 Next sequence
 -------------
 

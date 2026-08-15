@@ -93,6 +93,16 @@ def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
     assert "    - ./scripts/run-uv-test-env wait -- redis" in config
 
 
+def test_jobspec_points_explicit_testagent_readiness_at_service(gen_gitlab_config_mod):
+    spec = gen_gitlab_config_mod.JobSpec(name="suite", stage="core", services=["testagent"])
+
+    config = str(spec)
+
+    endpoint = '    - export DD_TRACE_AGENT_URL="http://testagent:9126"'
+    assert endpoint in config
+    assert config.index(endpoint) < config.index("    - ./scripts/run-uv-test-env wait -- testagent")
+
+
 def test_jobspec_retries_only_infrastructure_failures(gen_gitlab_config_mod):
     spec = gen_gitlab_config_mod.JobSpec(name="suite", stage="core", retry=2)
 

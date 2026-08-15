@@ -129,6 +129,8 @@ class JobSpec:
         lines.append(f"    - !reference [{base}, before_script]")
         lines.append("    - pip cache info")
         lines.append(f'    - export NIGHTLY_BUILD="{_nightly_build}"')
+        if "testagent" in services and not self.snapshot:
+            lines.append('    - export DD_TRACE_AGENT_URL="http://testagent:9126"')
         if wait_for:
             lines.append(f"    - ./scripts/run-uv-test-env wait -- {' '.join(wait_for)}")
 

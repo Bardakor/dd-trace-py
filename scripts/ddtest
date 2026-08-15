@@ -109,6 +109,9 @@ if [ "${DD_TEST_PODMAN_COMPAT:-0}" = "1" ]; then
         # variables, so pass its endpoint to snapshot tests.
         RUN_ARGS+=(-e "DD_TRACE_AGENT_URL=$DD_TRACE_AGENT_URL")
     fi
+    if [ -n "${DD_TEST_AGENT_URL_OVERRIDE+x}" ]; then
+        RUN_ARGS+=(-e "DD_TEST_AGENT_URL_OVERRIDE=$DD_TEST_AGENT_URL_OVERRIDE")
+    fi
     # Preserve service settings selected by scripts/run-tests. Unlike Docker's
     # normal Compose path, the Podman path constructs its own run arguments.
     for variable in $(compgen -e); do
@@ -126,6 +129,7 @@ if [ "${DD_TEST_PODMAN_COMPAT:-0}" = "1" ]; then
 else
     docker compose ${COMPOSE_FILES[@]} run $BUILD_FLAG \
            -e DD_TRACE_AGENT_URL \
+           -e DD_TEST_AGENT_URL_OVERRIDE \
            --rm \
            -i \
            testrunner \
