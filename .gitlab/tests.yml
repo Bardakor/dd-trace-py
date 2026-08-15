@@ -91,7 +91,13 @@ include:
 hatch/tracer-py312-canary:
   extends: .testrunner
   stage: core
-  needs: [ prechecks ]
+  needs:
+    - prechecks
+    - job: build_base_venvs
+      artifacts: true
+      parallel:
+        matrix:
+          - PYTHON_VERSION: "3.12"
   services:
     - !reference [.services, ddagent]
   variables:
