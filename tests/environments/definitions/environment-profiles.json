@@ -69,8 +69,7 @@
     "DD_PYTEST_USE_NEW_PLUGIN": "false"
   },
   "6a995a1ceb82b54d": {
-    "AGENT_VERSION": "testagent",
-    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+    "AGENT_VERSION": "testagent"
   },
   "700e6a6a0dac5103": {
     "DD_DATA_STREAMS_ENABLED": "true",

@@ -46,6 +46,12 @@ def test_nightly_environment_is_applied_only_when_requested():
     assert nightly.variables["DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED"] == "1"
 
 
+def test_wait_environment_uses_the_requested_agent_url():
+    wait = test_environments.find("wait")[0]
+
+    assert "DD_TRACE_AGENT_URL" not in wait.variables
+
+
 def test_unknown_core_override_is_rejected():
     with pytest.raises(ValueError, match="unknown-package"):
         test_environments._requirements(

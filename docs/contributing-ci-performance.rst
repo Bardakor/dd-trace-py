@@ -500,6 +500,17 @@ The same CI run exposed a documentation failure. The exact uv docs command repro
 dictionary entries from this document, then passed after the dictionary update. This was a documentation gate rather
 than an environment construction failure.
 
+Commit ``10464b05a1`` kept the six producers and smoke jobs green and made the docs job pass. Producer intervals were
+183 to 281 seconds, while the pre-check gate grew to 222 seconds. The tracer jobs waited for the complete six-version
+matrix because each shard could contain any Python version. All 14 still failed, despite the exact Python 3.13
+optimized environment passing 6,869 tests locally in 252.66 seconds.
+
+The shared failure occurred before pytest. Every tracer job invoked the named ``wait`` environment for ``ddagent``,
+but that legacy environment forced ``DD_TRACE_AGENT_URL`` to ``http://testagent:9126``. The suite started only
+``ddagent`` at ``http://localhost:8126``, so every shard polled an absent service and failed. The wait environment now
+inherits the suite-selected URL. This also identifies repeated installation of the Python 3.9 wait environment as a
+high-priority dependency and subprocess bottleneck to remove after the correctness checkpoint.
+
 The tracer-only generation filter prevents unrelated generated jobs from consuming runner capacity while the child
 process fix is validated. Remove it immediately after the tracer checkpoint passes so the following run validates
 every preserved named suite through the uv path.
