@@ -96,7 +96,7 @@ When you modify:
 
 ### Step 4: Execute Selected Venvs
 
-I'll run the selected environments. uv layers pinned dependencies over the shared Python-specific ddtrace build and reuses its package cache automatically:
+I'll run the selected environments. uv installs pinned dependencies over the shared Python-specific ddtrace build and reuses its package cache automatically:
 
 ```bash
 scripts/run-tests --venv <hash1> --venv <hash2>

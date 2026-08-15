@@ -62,9 +62,9 @@ You can access it by running
 
     $ scripts/ddtest
 
-Test commands run through uv, which layers each environment's pinned dependencies over a shared,
-editable ddtrace build. The resolved environment definitions and locks still come from Riot during
-the migration.
+uv installs each environment's pinned dependencies as a layer over a shared, editable ddtrace
+build. The test runner executes commands with that layer active. The resolved environment
+definitions and locks still come from Riot during the migration.
 
 You can run a known environment hash or lint checks in the test runner container with commands
 like these:

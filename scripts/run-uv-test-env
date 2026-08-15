@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # AIDEV-NOTE: Riot remains the temporary source of resolved environment metadata.
-# uv owns dependency installation and command execution during the migration.
+# uv owns dependency installation while this script executes the resolved commands.
 import riotfile  # noqa: E402
 
 
@@ -100,13 +100,7 @@ def main() -> int:
 
     metadata_path = write_metadata(identifier, instances)
     command = [
-        "uv",
-        "run",
-        "--no-project",
-        "--python",
         str(base_venv / "bin" / "python"),
-        "--",
-        "python",
         "scripts/uv_test_env.py",
         str(metadata_path),
         *sys.argv[2:],
