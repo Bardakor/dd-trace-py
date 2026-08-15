@@ -4,10 +4,9 @@ __pycache__/
 .download_cache/
 .eggs/
 .git/
-.hatch/
 .mypy_cache/
 .pytest_cache/
-.riot/
+.test-env/
 .ruff_cache/
 .tox/
 *.egg-info/

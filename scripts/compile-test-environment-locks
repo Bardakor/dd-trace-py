@@ -1,0 +1,118 @@
+#!/usr/bin/env scripts/uv-run-script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "uv==0.12.5",
+# ]
+# ///
+"""Compile missing test-environment locks with uv and remove stale locks."""
+
+from __future__ import annotations
+
+import argparse
+from importlib.metadata import version
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from scripts import test_environments  # noqa: E402
+
+
+def _python_executable(hint: str) -> str:
+    executable = shutil.which(hint) or shutil.which(f"python{hint}")
+    if executable is None:
+        raise FileNotFoundError(f"Python interpreter {hint} is not available")
+    return executable
+
+
+def _selected(patterns: list[str]):
+    candidates = test_environments.environments(environ={})
+    if not patterns:
+        return candidates
+
+    selected = []
+    seen = set()
+    for pattern in patterns:
+        for environment in test_environments.select(pattern, candidates):
+            if environment.id not in seen:
+                selected.append(environment)
+                seen.add(environment.id)
+    return selected
+
+
+def compile_lock(environment, exclude_newer: str | None, force: bool) -> bool:
+    lock_path = environment.lock_path
+    if lock_path.is_file() and not force:
+        return False
+
+    uv = Path(sys.executable).with_name("uv")
+    if not uv.is_file():
+        raise RuntimeError(f"Pinned uv {version('uv')} executable was not installed at {uv}")
+
+    input_path = lock_path.with_suffix(".in")
+    input_path.write_text("\n".join(environment.requirements) + "\n")
+    command = [
+        str(uv),
+        "pip",
+        "compile",
+        "--quiet",
+        "--no-annotate",
+        "--no-strip-extras",
+        "--custom-compile-command",
+        "scripts/compile-test-environment-locks",
+        "--python",
+        _python_executable(environment.python),
+        "--output-file",
+        str(lock_path),
+    ]
+    if exclude_newer:
+        command.extend(("--exclude-newer", exclude_newer))
+    command.append(str(input_path))
+    try:
+        subprocess.run(command, cwd=ROOT, check=True)
+    finally:
+        input_path.unlink(missing_ok=True)
+    return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("patterns", nargs="*")
+    parser.add_argument("--exclude-newer", default=os.environ.get("DD_TEST_LOCK_EXCLUDE_NEWER"))
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+
+    all_environments = test_environments.environments(environ={})
+    active_ids = {environment.id for environment in all_environments}
+    stale = sorted(path for path in test_environments.LOCK_ROOT.glob("*.txt") if path.stem not in active_ids)
+    for path in stale:
+        print(f"Removing stale lock {path.relative_to(ROOT)}")
+        path.unlink()
+
+    selected = _selected(args.patterns)
+    if args.patterns and not selected:
+        parser.error(f"no test environments matched: {', '.join(args.patterns)}")
+
+    compiled = 0
+    seen = set()
+    for environment in selected:
+        if environment.id in seen:
+            continue
+        seen.add(environment.id)
+        if compile_lock(environment, args.exclude_newer, args.force):
+            compiled += 1
+            print(f"Compiled {environment.id} ({environment.name}, Python {environment.python})")
+
+    subprocess.run([str(ROOT / "scripts" / "integration_registry" / "generate_supported_versions.py")], check=True)
+    print(f"Validated {len(active_ids)} locks; compiled {compiled}; removed {len(stale)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,4 +1,4 @@
-# Borrowed from langchain .riot/requirements/a311bc2.txt
+# Borrowed from the langchain test-environment lock a311bc2.txt
 # Many dependencies to stress code provenance package scanning
 ai21==3.0.1
 ai21-tokenizer==0.12.0

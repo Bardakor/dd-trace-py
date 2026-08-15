@@ -2,7 +2,6 @@
   extends: .testrunner
   variables:
     PIP_CACHE_DIR: '${{CI_PROJECT_DIR}}/.cache/pip'
-    EXT_CACHE_VENV: '${{CI_PROJECT_DIR}}/.cache/ext_cache_venv${{PYTHON_VERSION}}'
   before_script: |
     ulimit -c unlimited
     # 3.15 is shipped as the pyenv version "3.15-dev" until
@@ -13,19 +12,10 @@
     pyenv global 3.12 3.9 3.10 3.11 3.13 3.14 3.15-dev
     export _CI_DD_AGENT_URL=http://${{HOST_IP}}:8126/
     set -e -o pipefail
-    if [ ! -d $EXT_CACHE_VENV ]; then
-        python$PYTHON_VERSION -m venv $EXT_CACHE_VENV
-    fi
-
-    source $EXT_CACHE_VENV/bin/activate
-    python -m pip install cmake setuptools_rust Cython
-    python scripts/ext_cache.py restore
-    deactivate
+    uv run --script --python "python${{PYTHON_VERSION}}" scripts/ext_cache.py restore
   after_script: |
     set -e -o pipefail
-    source $EXT_CACHE_VENV/bin/activate
-    python scripts/ext_cache.py save
-    deactivate
+    uv run --script --python "python${{PYTHON_VERSION}}" scripts/ext_cache.py save
     bash .gitlab/scripts/generate-core-backtraces.sh
   cache:
     # Share pip between jobs of the same Python version and testrunner image.

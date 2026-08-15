@@ -136,7 +136,7 @@ Use the **releasenote** skill.
 
 ## Verification
 
-Use the **run-tests** skill to run tests. Use the **lint** skill for formatting and type checks. Never invoke `pytest`, `riot`, or `scripts/ddtest` directly.
+Use the **run-tests** skill to run tests. Use the **lint** skill for formatting and type checks. Never invoke `pytest`, `scripts/run-uv-test-env`, or `scripts/ddtest` directly.
 
 ## Recent PRs as Examples
 

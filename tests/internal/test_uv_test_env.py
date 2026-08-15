@@ -96,7 +96,7 @@ def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod
     assert run.call_count == 2
 
 
-def test_command_environment_preserves_riot_contract(uv_test_env_mod, monkeypatch, tmp_path):
+def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch, tmp_path):
     bootstrap = tmp_path / "bootstrap"
     prefix = tmp_path / "prefix"
     monkeypatch.setattr(uv_test_env_mod, "BOOTSTRAP_PATH", bootstrap)
@@ -105,8 +105,8 @@ def test_command_environment_preserves_riot_contract(uv_test_env_mod, monkeypatc
     env = uv_test_env_mod.command_environment(_instance(), prefix)
 
     assert env["DD_TRACE_ENABLED"] == "false"
-    assert env["RIOT"] == "1"
-    assert env["RIOT_VENV_HASH"] == "abc1234"
+    assert env["DD_TEST_ENV_ACTIVE"] == "1"
+    assert env["DD_TEST_ENV_ID"] == "abc1234"
     assert env["VIRTUAL_ENV"] == sys.prefix
     assert env["DD_TEST_SITE_PACKAGES"] == str(uv_test_env_mod._site_packages(prefix))
     assert env["PYTHONPATH"] == f"{bootstrap}{uv_test_env_mod.os.pathsep}existing"

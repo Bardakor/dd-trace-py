@@ -5,7 +5,6 @@
 # dependencies = [
 #     "packaging>=23.1,<24",
 #     "requests>=2.28,<3",
-#     "riot>=0.19.0",
 #     "setuptools<82",
 # ]
 # ///
@@ -13,7 +12,7 @@
 Validate that CI tests cover all major versions declared in pyproject.toml.
 
 This script checks that for each dependency in pyproject.toml that is explicitly
-tested in CI configuration files (riotfile.py, GitLab CI, GitHub Actions), the test
+tested in the environment inventory, GitLab CI, or GitHub Actions, the test
 entries cover all major versions within the declared range.
 
 For example, if pyproject.toml declares `wrapt>=1,<3` and CI has test entries for
@@ -37,7 +36,7 @@ Warnings:
 - 'latest' is outside declared bounds (intentional early detection, but should use explicit bounds)
 
 Silencing:
-- Add '# ci-deps: allow' at the end of a line in riotfile.py or CI files to silence errors/warnings
+- Add '# ci-deps: allow' at the end of a CI command to silence errors/warnings
 - Silenced items are summarized at the end of the output
 """
 
@@ -48,6 +47,7 @@ from pathlib import Path
 import re
 import sys
 
+from packaging.requirements import InvalidRequirement
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
@@ -325,7 +325,7 @@ def analyze_version_spec(spec: str) -> tuple[set[int], bool]:
         - For 'latest': (empty set, True)
         - For explicit specs: (set of majors, False)
 
-    Note: When pip/riot resolves a specifier, it installs ONE version (typically the latest
+    Note: When uv resolves a specifier, it installs ONE version (typically the latest
     satisfying the constraint), not all versions. So:
     - "<2.0.0" installs the latest 1.x, testing major 1 (not 0 and 1)
     - ">=1,<3" installs the latest satisfying this (e.g., 2.x if available), testing one major
@@ -392,21 +392,13 @@ def analyze_version_spec(spec: str) -> tuple[set[int], bool]:
     return {max(satisfying_majors)}, False
 
 
-def extract_riotfile_tested_versions() -> dict[str, DepInfo]:
-    """
-    Extract which major versions are tested for packages in riotfile.py.
-
-    Returns:
-        Dict mapping package name to DepInfo
-    """
-    # Add project root to path to import riotfile
+def extract_environment_tested_versions() -> dict[str, DepInfo]:
+    """Extract tested dependency majors from the test environment inventory."""
     project_root = Path(__file__).parent.parent.resolve()
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    from riot import latest
-
-    import riotfile
+    from scripts import test_environments
 
     tested: dict[str, DepInfo] = {}
 
@@ -417,17 +409,16 @@ def extract_riotfile_tested_versions() -> dict[str, DepInfo]:
         if latest_version:
             info.latest_major = latest_version.major
 
-    def process_version_spec(pkg_name: str, version_spec):
+    def process_version_spec(pkg_name: str, version_spec: str, environment_name: str) -> None:
         """Process a single version spec for a package."""
-        loc = Location("riotfile.py", 0)  # Line number not available with direct import
+        loc = Location(f"tests/environments/nodes/{environment_name}.json", 0)
 
         if pkg_name not in tested:
             tested[pkg_name] = DepInfo()
 
         tested[pkg_name].locations.append(loc)
 
-        # Empty string or riot.latest means 'latest' in riot
-        if not version_spec or version_spec == latest:
+        if not version_spec:
             add_latest_major(pkg_name, tested[pkg_name])
         else:
             majors, is_latest = analyze_version_spec(version_spec)
@@ -436,26 +427,16 @@ def extract_riotfile_tested_versions() -> dict[str, DepInfo]:
             else:
                 tested[pkg_name].majors = tested[pkg_name].majors.union(majors)
 
-    def traverse_venv(venv):
-        """Recursively traverse the Venv tree and collect package information."""
-        # Process packages at this level
-        if hasattr(venv, "pkgs") and venv.pkgs:
-            for pkg_name, version_spec in venv.pkgs.items():
-                # version_spec can be a string or a list of strings
-                if isinstance(version_spec, list):
-                    # Process each spec in the list
-                    for spec in version_spec:
-                        process_version_spec(pkg_name, spec)
-                else:
-                    process_version_spec(pkg_name, version_spec)
-
-        # Recursively traverse child venvs
-        if hasattr(venv, "venvs") and venv.venvs:
-            for child_venv in venv.venvs:
-                traverse_venv(child_venv)
-
-    # Start traversal from the root venv
-    traverse_venv(riotfile.venv)
+    for environment in test_environments.environments(environ={}):
+        for raw_requirement in environment.requirements:
+            try:
+                requirement = Requirement(raw_requirement)
+            except InvalidRequirement:
+                continue
+            if requirement.url:
+                continue
+            package_name = requirement.name.lower().replace("_", "-")
+            process_version_spec(package_name, str(requirement.specifier), environment.name)
 
     return tested
 
@@ -706,15 +687,14 @@ def main() -> int:
     pyproject_data, pyproject_content = load_pyproject()
     pyproject_deps = extract_pyproject_dependencies(pyproject_data, pyproject_content)
 
-    # Load riotfile.py by importing it directly
-    riotfile_tested = extract_riotfile_tested_versions()
+    environment_tested = extract_environment_tested_versions()
 
     # Load GitLab and GitHub CI files
     ci_files = load_all_ci_files()
     ci_tested_list = [extract_ci_file_tested_versions(content, filename) for filename, content in ci_files]
 
     # Merge all CI sources
-    all_tested = merge_tested_versions(riotfile_tested, *ci_tested_list)
+    all_tested = merge_tested_versions(environment_tested, *ci_tested_list)
 
     # Check coverage
     errors, warnings, silenced = check_coverage(pyproject_deps, all_tested)

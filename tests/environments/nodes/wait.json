@@ -1,0 +1,15 @@
+{
+  "instances": [
+    {
+      "command": "140b43170a80935c",
+      "dependencies": "e926369a3c93ca62",
+      "environment": "6a995a1ceb82b54d",
+      "id": "39f016b",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_azure-data-tables_azure-storage-blob_azure-storage-queue_cassandra-driver_psycopg2-binary_mysql-connector-python!8018_vertica-python060070_kombu420430_pymssql_pytest-randomly_redis_requests",
+      "legacy_long_id": "39f016b78cad7d6",
+      "position": 265,
+      "python": "3.9"
+    }
+  ],
+  "name": "wait"
+}

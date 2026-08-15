@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import platform
 import shlex
 import shutil
 import subprocess
@@ -76,14 +75,12 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
     env.update(instance["env"])
     env.update(
         {
-            "RIOT": "1",
-            "RIOT_PYTHON_HINT": instance["python"],
-            "RIOT_PYTHON_VERSION": platform.python_version(),
-            "RIOT_VENV_HASH": instance["hash"],
-            "RIOT_VENV_IDENT": instance["ident"],
-            "RIOT_VENV_NAME": instance["name"],
-            "RIOT_VENV_PKGS": instance["packages"],
-            "RIOT_VENV_FULL_PKGS": instance["full_packages"],
+            "DD_TEST_ENV_ACTIVE": "1",
+            "DD_TEST_ENV_ID": instance["hash"],
+            "DD_TEST_ENV_IDENTITY": instance["ident"],
+            "DD_TEST_ENV_NAME": instance["name"],
+            "DD_TEST_ENV_PYTHON": instance["python"],
+            "DD_TEST_ENV_REQUIREMENTS": instance["packages"],
             "VIRTUAL_ENV": sys.prefix,
             "DD_TEST_SITE_PACKAGES": str(_site_packages(prefix)),
         }

@@ -1,0 +1,25 @@
+{
+  "instances": [
+    {
+      "command": "cbc625f32dadf6f5",
+      "dependencies": "f17fe4f12379831e",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "750c562",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_celery_gevent_requests_typing-extensions_pytest-randomly_sqlalchemy~1218_django~220",
+      "legacy_long_id": "750c562e6eaf92e",
+      "position": 385,
+      "python": "3.9"
+    },
+    {
+      "command": "cbc625f32dadf6f5",
+      "dependencies": "611d05b915e1645f",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "8567c69",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_celery_gevent_requests_typing-extensions_pytest-randomly_sqlalchemy_django",
+      "legacy_long_id": "8567c691436178d",
+      "position": 386,
+      "python": "3.12"
+    }
+  ],
+  "name": "django:celery"
+}

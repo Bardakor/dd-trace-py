@@ -53,6 +53,11 @@
     "_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED": "1",
     "_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER": "1"
   },
+  "isolation_policy": {
+    "environment_command": "fresh-process",
+    "snapshot_test": "fresh-process-and-test-agent-session-required",
+    "span_test": "fresh-process-required"
+  },
   "schema_version": 1,
   "supported_python": [
     "3",

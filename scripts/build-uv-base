@@ -16,6 +16,7 @@ from importlib.metadata import version
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -38,6 +39,13 @@ BUILD_FILES = {"Cargo.lock", "Cargo.toml", "CMakeLists.txt", "pyproject.toml", "
 
 def base_path(python: str) -> Path:
     return BASE_ROOT / f"py{python}"
+
+
+def _python_executable(hint: str) -> str:
+    executable = shutil.which(hint) or shutil.which(f"python{hint}")
+    if executable is None:
+        raise FileNotFoundError(f"Python interpreter {hint} is not available")
+    return executable
 
 
 def _tracked_build_inputs() -> list[Path]:
@@ -85,7 +93,7 @@ def build(python: str) -> Path:
             return destination
 
         subprocess.run(
-            [str(uv), "venv", "--python", python, "--seed", "--clear", str(destination)],
+            [str(uv), "venv", "--python", _python_executable(python), "--seed", "--clear", str(destination)],
             cwd=ROOT,
             check=True,
         )

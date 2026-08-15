@@ -1,0 +1,15 @@
+{
+  "instances": [
+    {
+      "command": "4c2c67d43e192fbd",
+      "dependencies": "40a838460751ba05",
+      "environment": "ad88c4bc532aad1f",
+      "id": "1bc972c",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451",
+      "legacy_long_id": "1bc972caa4259751",
+      "position": 0,
+      "python": "3.10"
+    }
+  ],
+  "name": "meta-testing"
+}

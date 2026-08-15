@@ -2,7 +2,7 @@
 name: debug-build-times
 description: >
   Diagnose and fix slow base venv build times caused by unnecessary recompilation of
-  native extensions (CMake, Cython, Rust) across riot generate runs. Use when CI base
+  native extensions (CMake, Cython, Rust) across uv base builds. Use when CI base
   venv builds are slow, when ext_cache isn't saving time, or when investigating warm
   build regressions.
 allowed-tools:
@@ -67,24 +67,24 @@ run_build() {
     local label="$1" metadata_out="$2"
     header "$label build (python $PYTHON_VERSION)"
     step "Restoring from cache"; cache_restore
-    step "riot generate"
+    step "uv base build"
     export _DD_DEBUG_EXT=1 _DD_DEBUG_EXT_FILE="$metadata_out"
-    riot -P generate --python="$PYTHON_VERSION"
+    scripts/build-uv-base "$PYTHON_VERSION"
     unset _DD_DEBUG_EXT _DD_DEBUG_EXT_FILE
     step "Saving to cache"; cache_save
     cat "$metadata_out" 2>/dev/null || echo "(no metadata written)"
 }
 
 header "Clearing test state"
-rm -rf ".riot/venv_py${PYTHON_VERSION/./}"*
+rm -rf ".test-env/uv-bases/py${PYTHON_VERSION}"
 rm -rf "$CACHE_ROOT"
 rm -rf .eggs  # stale eggs cause ENOTEMPTY on Python ≤3.10's legacy setuptools
 # Remove compiled .so files for a true cold state
 find ddtrace -name "*.so" -o -name "*.dylib" -o -name "*.pyd" | grep -v "_vendor" | xargs rm -f 2>/dev/null || true
 
 run_build "COLD" "$METADATA_COLD"
-header "Clearing riot venv for warm run"
-rm -rf ".riot/venv_py${PYTHON_VERSION/./}"*
+header "Clearing uv base for warm run"
+rm -rf ".test-env/uv-bases/py${PYTHON_VERSION}"
 run_build "WARM" "$METADATA_WARM"
 
 header "Summary"
@@ -112,7 +112,7 @@ print(f"DEBUG {ext.name}: ext_path={ext_path} exists={ext_path.exists()} needs_r
 ```
 
 ```bash
-.riot/venv_py3131/bin/pip --disable-pip-version-check install -e . -v 2>&1 | grep "DEBUG\|skipping\|building"
+.test-env/uv-bases/py3.13/bin/pip --disable-pip-version-check install -e . -v 2>&1 | grep "DEBUG\|skipping\|building"
 ```
 
 ### Step 4: Find the newer source

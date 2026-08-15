@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from functools import lru_cache
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,8 +17,14 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parents[1]
 CORE_PATH = ROOT / "tests" / "environments" / "core.json"
 INVENTORY_PATH = ROOT / "tests" / "environments" / "inventory.json"
-LOCK_ROOT = ROOT / ".riot" / "requirements"
-SCHEMA_VERSION = 1
+LOCK_ROOT = ROOT / "tests" / "environments" / "locks"
+CORE_SCHEMA_VERSION = 1
+INVENTORY_SCHEMA_VERSION = 2
+ISOLATION_POLICY = {
+    "environment_command": "fresh-process",
+    "snapshot_test": "fresh-process-and-test-agent-session-required",
+    "span_test": "fresh-process-required",
+}
 
 
 @dataclass(frozen=True)
@@ -41,24 +47,32 @@ class Environment:
         return LOCK_ROOT / f"{self.id}.txt"
 
 
-def _canonical_bytes(value) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-
-
 @lru_cache(maxsize=1)
 def _load_data() -> tuple[dict, dict]:
     core = json.loads(CORE_PATH.read_text())
-    inventory = json.loads(INVENTORY_PATH.read_text())
-    if core.get("schema_version") != SCHEMA_VERSION:
+    manifest = json.loads(INVENTORY_PATH.read_text())
+    if core.get("schema_version") != CORE_SCHEMA_VERSION:
         raise ValueError(f"Unsupported core environment schema {core.get('schema_version')}")
-    if inventory.get("schema_version") != SCHEMA_VERSION:
-        raise ValueError(f"Unsupported environment inventory schema {inventory.get('schema_version')}")
+    if manifest.get("schema_version") != INVENTORY_SCHEMA_VERSION:
+        raise ValueError(f"Unsupported environment inventory schema {manifest.get('schema_version')}")
+    if manifest.get("layout") != "named-nodes-v1":
+        raise ValueError(f"Unsupported environment inventory layout {manifest.get('layout')}")
+    if core.get("isolation_policy") != ISOLATION_POLICY:
+        raise ValueError("Test environment isolation policy is missing or unsupported")
 
-    recorded_digest = inventory.pop("inventory_digest", None)
-    actual_digest = hashlib.sha256(_canonical_bytes(inventory)).hexdigest()
-    inventory["inventory_digest"] = recorded_digest
-    if recorded_digest != actual_digest:
-        raise ValueError("Test environment inventory digest does not match its contents")
+    definitions = {
+        name: json.loads((INVENTORY_PATH.parent / relative_path).read_text())
+        for name, relative_path in manifest["definitions"].items()
+    }
+    instances = []
+    for path in sorted(INVENTORY_PATH.parent.glob(manifest["nodes"])):
+        node = json.loads(path.read_text())
+        name = node["name"]
+        if path.stem != name.replace(":", "__"):
+            raise ValueError(f"Environment node {path} declares the name {name!r}")
+        instances.extend({**instance, "name": name} for instance in node["instances"])
+    instances.sort(key=lambda instance: instance["position"])
+    inventory = {"definitions": definitions, "instances": instances}
     return core, inventory
 
 
@@ -92,6 +106,8 @@ def environments(environ: Optional[Mapping[str, str]] = None) -> list[Environmen
     environment_profiles = definitions["environment_profiles"]
     resolved = []
     for position, instance in enumerate(inventory["instances"]):
+        if instance["position"] != position:
+            raise ValueError(f"Environment inventory position {instance['position']} is not contiguous at {position}")
         try:
             command = commands[instance["command"]]
             requirements = _requirements(core, dependency_profiles[instance["dependencies"]])
@@ -152,6 +168,8 @@ def validate() -> dict[str, int]:
             raise ValueError(f"Environment ID {environment.id!r} is not a seven-character digest")
         if not environment.name:
             raise ValueError(f"Environment {environment.id} has no resolved name")
+        if not environment.legacy_long_id.startswith(environment.id):
+            raise ValueError(f"Environment {environment.id} has an inconsistent legacy ID")
         by_id.setdefault(environment.id, []).append(environment)
 
     missing_locks = sorted(
@@ -160,10 +178,34 @@ def validate() -> dict[str, int]:
     if missing_locks:
         raise ValueError(f"Missing environment locks: {', '.join(missing_locks)}")
     for environment_id, variants in by_id.items():
-        if len({(variant.python, variant.requirements) for variant in variants}) != 1:
-            raise ValueError(f"Environment variants for {environment_id} disagree on Python or dependencies")
+        if len({(variant.name, variant.python, variant.requirements) for variant in variants}) != 1:
+            raise ValueError(f"Environment variants for {environment_id} disagree on name, Python, or dependencies")
+    stale_locks = sorted(path.stem for path in LOCK_ROOT.glob("*.txt") if path.stem not in by_id)
+    if stale_locks:
+        raise ValueError(f"Stale environment locks: {', '.join(stale_locks)}")
     return {
         "instances": len(resolved),
         "named_nodes": len({environment.name for environment in resolved}),
         "unique_environments": len(by_id),
     }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="action", required=True)
+    subparsers.add_parser("check")
+    list_parser = subparsers.add_parser("list")
+    list_parser.add_argument("pattern")
+    args = parser.parse_args()
+
+    if args.action == "list":
+        for environment in select(args.pattern):
+            print(environment.id)
+        return 0
+
+    print(json.dumps(validate(), sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

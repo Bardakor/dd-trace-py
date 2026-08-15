@@ -10,7 +10,7 @@ from mappings import INTEGRATION_TO_DEPENDENCY_MAPPING  # noqa: E402
 
 
 def normalize_to_pypi_name(name: str) -> str:
-    """Resolve a riot venv / integration name to its PyPI project name.
+    """Resolve a test environment or integration name to its PyPI project name.
 
     PyPI already normalizes ``-``/``_``/case per PEP 503, so the only cases
     that actually need translating are the ones where the venv name and the

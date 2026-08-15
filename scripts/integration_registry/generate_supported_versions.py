@@ -5,7 +5,6 @@
 # dependencies = [
 #     "packaging>=23.1,<24",
 #     "pyyaml>=6,<7",
-#     "riot>=0.22.0",
 # ]
 # ///
 import ast
@@ -15,8 +14,9 @@ import json
 from pathlib import Path
 import re
 import sys
-from typing import Any
 
+from packaging.requirements import InvalidRequirement
+from packaging.requirements import Requirement
 from packaging.version import Version
 
 
@@ -25,23 +25,22 @@ sys.path.append(str(PROJECT_ROOT))
 
 from mappings import INTEGRATION_TO_DEPENDENCY_MAPPING  # noqa: E402
 
-import riotfile  # noqa: E402
+from scripts import test_environments  # noqa: E402
 
 
 CONTRIB_INTERNAL_ROOT = PROJECT_ROOT / "ddtrace" / "contrib" / "internal"
 DDTRACE_MONKEY_PATH = PROJECT_ROOT / "ddtrace" / "_monkey.py"
 SUPPORTED_VERSIONS_PATH = PROJECT_ROOT / "supported_versions.json"
 
-REQUIREMENTS_DIR = PROJECT_ROOT / ".riot" / "requirements"
-# Allows to get the version of a depency in a riot requirement files when it is formatted
+REQUIREMENTS_DIR = test_environments.LOCK_ROOT
+# Allows to get the version of a dependency in a lock file when it is formatted
 # like anyio==4.9.0
 REQUIREMENT_RE = re.compile(r"^([A-Za-z0-9_.-]+)(?:\[[^\]]+\])?==([^;\s]+)")
 PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
-LATEST = ""
 
 
 @dataclass(frozen=True)
-class RiotVenv:
+class TestEnvironment:
     name: str
     python_version: str
 
@@ -99,17 +98,15 @@ def get_patch_modules() -> dict[str, bool]:
 PATCH_MODULES = get_patch_modules()
 
 
-def get_riot_hash_to_venvs() -> dict[str, RiotVenv]:
-    """Map each generated riot requirements hash to its riot venv metadata."""
-    riot_venvs = {}
-    for instance in riotfile.venv.instances():
-        if not instance.name:
-            continue
-        riot_venvs[instance.short_hash] = RiotVenv(
-            name=instance.name.lower(),
-            python_version=instance.py._hint,
+def get_environment_metadata() -> dict[str, TestEnvironment]:
+    """Map each lock ID to its test environment metadata."""
+    metadata = {}
+    for environment in test_environments.environments(environ={}):
+        metadata[environment.id] = TestEnvironment(
+            name=environment.name.lower(),
+            python_version=environment.python,
         )
-    return riot_venvs
+    return metadata
 
 
 def parse_locked_versions(requirements_path: Path) -> dict[str, str]:
@@ -124,26 +121,26 @@ def parse_locked_versions(requirements_path: Path) -> dict[str, str]:
 
 
 def is_concrete_python_version(python_version: str) -> bool:
-    """Return whether a riot Python hint identifies one concrete major.minor runtime."""
+    """Return whether a Python hint identifies one concrete major.minor runtime."""
     return PYTHON_VERSION_RE.match(python_version) is not None
 
 
 def collect_tested_versions() -> dict[str, dict[str, set[TestedVersion]]]:
     """Collect tested dependency versions by integration and Python version."""
     tested_versions: dict[str, dict[str, set[TestedVersion]]] = defaultdict(lambda: defaultdict(set))
-    riot_hash_to_venvs = get_riot_hash_to_venvs()
+    environment_metadata = get_environment_metadata()
 
     for requirements_path in sorted(REQUIREMENTS_DIR.glob("*.txt")):
-        riot_hash = requirements_path.stem
-        riot_venv = riot_hash_to_venvs.get(riot_hash, None)
+        environment_id = requirements_path.stem
+        environment = environment_metadata.get(environment_id)
 
-        if not riot_venv:
+        if not environment:
             continue
 
-        if not is_concrete_python_version(riot_venv.python_version):
+        if not is_concrete_python_version(environment.python_version):
             continue
 
-        integration_name = riot_venv.name.split(":", 1)[0]
+        integration_name = environment.name.split(":", 1)[0]
 
         dependency_names = get_dependency_names(integration_name)
         found_dependency_version = False
@@ -157,7 +154,7 @@ def collect_tested_versions() -> dict[str, dict[str, set[TestedVersion]]]:
                     tested_versions[integration_name][dependency].add(
                         TestedVersion(
                             version=version,
-                            python_version=riot_venv.python_version,
+                            python_version=environment.python_version,
                         )
                     )
 
@@ -165,7 +162,7 @@ def collect_tested_versions() -> dict[str, dict[str, set[TestedVersion]]]:
             tested_versions[integration_name][f"stdlib.{integration_name}"].add(
                 TestedVersion(
                     version="",
-                    python_version=riot_venv.python_version,
+                    python_version=environment.python_version,
                 )
             )
             continue
@@ -183,37 +180,30 @@ def _python_sort_key(python_version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in python_version.split("."))
 
 
-def _venv_sets_latest_for_package(venv: Any, suite_name: str) -> bool:
-    packages = get_dependency_names(suite_name) or [suite_name]
-    venv_packages = {package.lower(): version for package, version in venv.pkgs.items()}
-
-    for package in packages:
-        if package.lower() in venv_packages and LATEST in venv_packages[package.lower()]:
+def _environment_sets_latest_for_package(environment, integration_name: str) -> bool:
+    packages = {package.lower() for package in (get_dependency_names(integration_name) or [integration_name])}
+    for raw_requirement in environment.requirements:
+        try:
+            requirement = Requirement(raw_requirement)
+        except InvalidRequirement:
+            continue
+        if requirement.name.lower() in packages and not requirement.specifier and requirement.url is None:
             return True
-    return any(_venv_sets_latest_for_package(child_venv, suite_name) for child_venv in venv.venvs)
+    return False
 
 
 def get_pinned_integrations(integration_names: set[str]) -> set[str]:
-    """Return integrations that do not have any riot venv setting the dependency to latest."""
-    pinned_integrations = set()
-    integrations_setting_latest = set()
-
-    def recurse_venvs(venvs: list[Any], inherited_name: str | None = None) -> None:
-        for venv in venvs:
-            venv_name = (venv.name or inherited_name or "").lower()
-            integration_name = venv_name.split(":", 1)[0]
-
-            if integration_name in integration_names:
-                if _venv_sets_latest_for_package(venv, integration_name):
-                    integrations_setting_latest.add(integration_name)
-                    pinned_integrations.discard(integration_name)
-                elif integration_name not in integrations_setting_latest:
-                    pinned_integrations.add(integration_name)
-
-            recurse_venvs(venv.venvs, venv_name)
-
-    recurse_venvs(riotfile.venv.venvs)
-    return pinned_integrations
+    """Return integrations without an environment that tracks the latest dependency."""
+    configured = set()
+    tracking_latest = set()
+    for environment in test_environments.environments(environ={}):
+        integration_name = environment.name.lower().split(":", 1)[0]
+        if integration_name not in integration_names:
+            continue
+        configured.add(integration_name)
+        if _environment_sets_latest_for_package(environment, integration_name):
+            tracking_latest.add(integration_name)
+    return configured - tracking_latest
 
 
 def build_python_versions(
@@ -280,7 +270,7 @@ def build_supported_versions_entries(tested_versions_per_integration: dict[str, 
 
 
 def main() -> None:
-    """Generate supported_versions.json from riot requirement lock files."""
+    """Generate supported_versions.json from test environment lock files."""
     tested_versions_per_integration = collect_tested_versions()
     SUPPORTED_VERSIONS_PATH.write_text(
         json.dumps(build_supported_versions_entries(tested_versions_per_integration), indent=4) + "\n"

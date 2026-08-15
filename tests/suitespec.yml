@@ -5,8 +5,7 @@ components:
     - docker-compose.base.yml
     - docker-compose.podman.yml
     - docker-compose.yml
-    - riotfile.py
-    - .riot/requirements/*
+    - tests/environments/**/*
     - scripts/ddtest
     - pyproject.toml
     - tests/conftest.py
@@ -220,7 +219,7 @@ suites:
       - ddtrace/internal/*
       - scripts/gen_gitlab_config.py
       - scripts/build-uv-base
-      - scripts/test_env_contract.py
+      - scripts/compile-test-environment-locks
       - scripts/test_environments.py
       - tests/environments/*
       - tests/internal/*

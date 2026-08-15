@@ -1,6 +1,6 @@
 stages:
   - setup
-  - riot
+  - test
   - exploration
 
 variables:
@@ -15,7 +15,7 @@ include:
 # Do not define a `needs:` in order to depend on the whole `precheck` stage
 .test_base_uv:
   extends: .testrunner
-  stage: riot
+  stage: test
   needs: [ build_base_venvs, prechecks ]
   parallel: 4
   services:
@@ -29,7 +29,7 @@ include:
     - unset DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED
   script:
     - |
-      hashes=( $(.gitlab/scripts/get-riot-hashes.sh "${SUITE_NAME}") )
+      hashes=( $(.gitlab/scripts/get-test-environment-ids.sh "${SUITE_NAME}") )
       echo "NIGHTLY_BUILD: ${NIGHTLY_BUILD}"
       if [[ ${#hashes[@]} -eq 0 ]]; then
         echo "No test environments found for ${SUITE_NAME}"
@@ -38,11 +38,11 @@ include:
       for hash in "${hashes[@]}"
       do
         echo "Running uv environment: ${hash}"
-        export _CI_DD_TAGS="test.configuration.riot_hash:${hash}"
+        export _CI_DD_TAGS="test.configuration.environment_id:${hash}"
         ./scripts/run-uv-test-env "${hash}" -- --ddtrace
       done
-      ./scripts/check-diff ".riot/requirements/" \
-        "Changes detected after running riot. Consider deleting changed files, running scripts/compile-and-prune-test-requirements and committing the result."
+      ./scripts/check-diff "tests/environments/locks/" \
+        "Test environment locks changed. Run scripts/compile-test-environment-locks and commit the result."
       ./scripts/check-diff "scripts/integration_registry/registry.yaml" \
         "Registry YAML file (scripts/integration_registry/registry.yaml) was modified. Please run: scripts/integration_registry/update_and_format_registry.py and commit the changes."
 

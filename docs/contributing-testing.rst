@@ -64,13 +64,13 @@ You can access it by running
 
 uv installs each environment's pinned dependencies as a layer over a shared, editable ddtrace
 build, then launches the test runner with that layer active. Local routing and generated CI read
-``tests/environments/inventory.json`` without importing Riot. During the dual-source migration,
-``scripts/test_env_contract.py`` proves that this flat inventory still resolves exactly like ``riotfile.py``.
+``tests/environments/inventory.json`` directly.
 
 ``tests/environments/core.json`` is the small, maintained source for supported Python requests,
 dependencies shared by every test environment, base variables, and conditional nightly variables.
 The larger inventory stores only core dependency overrides, additions, environment deltas, commands,
-and flat instances. Named environment boundaries and stable seven-character IDs are preserved.
+and flat instances. Named environment boundaries and stable seven-character IDs are preserved. See
+``tests/environments/README.md`` for the file layout and maintenance workflow.
 
 You can run a known environment hash or lint checks in the test runner container with commands
 like these:
@@ -188,16 +188,15 @@ Then run the selected environment again. ``scripts/run-tests`` verifies the fing
 Why is my CI run failing with a message about requirements files?
 -----------------------------------------------------------------
 
-``.riot/requirements`` contains requirements files generated with ``pip-compile`` for every environment specified
-by ``riotfile.py``. uv consumes these pinned files, and they do not get rebuilt automatically when the
-riotfile changes. Thus, if you make changes to the riotfile, you need to rebuild them.
+``tests/environments/locks`` contains the uv-compiled requirements for every resolved environment.
+The locks do not rebuild automatically when the JSON definitions change.
 
 .. code-block:: bash
 
-  $ scripts/ddtest scripts/compile-and-prune-test-requirements
+  $ scripts/ddtest scripts/compile-test-environment-locks --force '^<environment_name>$'
 
-You can commit and pull request the resulting changes to files in ``.riot/requirements`` alongside the
-changes you made to ``riotfile.py``.
+Commit the resulting lock changes alongside the JSON definition changes. Running the compiler without
+a selector creates missing locks, removes stale locks, and refreshes supported integration versions.
 
 Why is my CI run failing with benchmark or Service Level Objective (SLO) threshold breaches?
 ---------------------------------------------------------------------------------------------
@@ -236,30 +235,26 @@ The library includes automated SLO checks that monitor performance thresholds fo
 How do I add a new test suite?
 ------------------------------
 
-uv runs the test suites and installs their dependencies. During the configuration migration, new matrices are
-still declared as ``Venv`` instances in ``riotfile.py`` so the existing lock compiler remains authoritative.
-It can look like this:
+uv runs test suites and installs their dependencies. Add a named node under
+``tests/environments/nodes`` and reuse or add content-addressed definitions under
+``tests/environments/definitions``. A node instance looks like this:
 
-.. code-block:: python
+.. code-block:: json
 
-    Venv(
-        name="yaaredis",
-        command="pytest {cmdargs} tests/contrib/yaaredis",
-        pkgs={
-            "pytest-asyncio": "==0.21.1",
-            "pytest-randomly": latest,
-        },
-        venvs=[
-            Venv(
-                pys=select_pys(min_version="3.8", max_version="3.9"),
-                pkgs={"yaaredis": ["~=2.0.0", latest]},
-            ),
-        ],
-    ),
+    {
+      "command": "<command-profile>",
+      "dependencies": "<dependency-profile>",
+      "environment": "<environment-profile>",
+      "id": "<stable-seven-character-id>",
+      "identity": "yaaredis_pytest-asyncio_pytest-randomly",
+      "legacy_long_id": "<stable-long-id>",
+      "position": 1936,
+      "python": "3.12"
+    }
 
-Once a ``Venv`` instance has been created, you will be able to run it as explained in the section below.
-Next, we will need to add a new CI job to run the newly added test suite. This change can be made in the
-``tests/contrib/suitespec.yml`` file:
+Shared dependencies belong in ``tests/environments/core.json``. Keep node-specific packages in a
+dependency profile so unrelated locks do not churn. Validate the inventory, compile the new lock,
+and run the suite as described above. Then add the CI suite to ``tests/suitespec.yml``:
 
 .. code-block:: yaml
 
@@ -280,25 +275,18 @@ Next, we will need to add a new CI job to run the newly added test suite. This c
 
 See ``tests/README.md`` for more detail on adding new CI jobs.
 
-How do I update a Riot environment to use the latest version of a package?
---------------------------------------------------------------------------
+How do I update a test environment to the latest package version?
+------------------------------------------------------------------
 
-Reading through the above example and others in ``riotfile.py``, you may notice that some package versions are specified
-as the variable ``latest``. When the Riotfile is compiled into the ``.txt`` files in the ``.riot`` directory, ``latest`` tells
-the compiler to pin the newest version of the package available on PyPI according to semantic versioning.
+An unbounded requirement means the newest compatible package only when its lock is compiled. To refresh
+one named node, run:
 
-Because this version resolution happens during Riotfile compilation, ``latest`` doesn't always mean "latest" once the compiled
-requirements files are checked into source control. In order to stay current, these requirements files need to be recompiled
-periodically.
+.. code-block:: bash
 
-Assume you have a ``Venv`` instance in the Riotfile that uses the ``latest`` variable. Note the ``name`` field of this
-environment object.
+    $ scripts/ddtest scripts/compile-test-environment-locks --force '^<environment_name>$'
 
-1. Run ``scripts/ddtest`` to enter a shell in the testrunner container
-2. ``export VENV_NAME=<name_you_noted_above>``
-3. Delete all of the requirements lockfiles for the chosen environment, then regenerate them:
-   ``for h in `riot list --hash-only "^${VENV_NAME}$"`; do rm .riot/requirements/${h}.txt; done; scripts/compile-and-prune-test-requirements``
-4. Commit the resulting changes to the ``.riot`` directory, and open a pull request against the trunk branch.
+Use ``DD_TEST_LOCK_EXCLUDE_NEWER=<timestamp>`` when the update needs a reproducible publication cutoff.
+Review and commit the changed files under ``tests/environments/locks``.
 
 Why isn't my lint dependency change taking effect?
 --------------------------------------------------

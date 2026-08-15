@@ -91,7 +91,7 @@ def test_appsec_product_wires_remote_configuration():
 
 
 @pytest.mark.xfail(
-    reason="DD_REMOTE_CONFIGURATION_ENABLED is set to false for all riot venvs, "
+    reason="DD_REMOTE_CONFIGURATION_ENABLED is false in all default test environments, "
     "this is not the default behavior for users"
 )
 def test_rc_enabled_by_default(tracer):

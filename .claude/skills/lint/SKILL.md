@@ -171,15 +171,15 @@ scripts/lint spelling -- docs/ releasenotes/
 
 ### Test Infrastructure
 
-#### `riot` - Validate riotfile
-Doctests the riotfile to ensure test venv definitions are valid.
+#### `test-environments` - Validate uv test environments
+Checks the flat inventory, shared definitions, stable IDs, and lock coverage.
 
 **Usage:**
 ```bash
-scripts/lint riot
+scripts/lint test-environments
 ```
 
-**When to use:** After modifying `riotfile.py` to validate syntax and doctest examples.
+**When to use:** After modifying files under `tests/environments`.
 
 #### `suitespec-check` - Validate test suite specifications
 Checks that test suite patterns in `tests/suitespec.yml` cover all test files.
@@ -278,7 +278,7 @@ This runs:
 - style checks
 - typing checks
 - spelling checks
-- riot validation
+- uv test-environment validation
 - security checks
 - suitespec validation
 - error log validation

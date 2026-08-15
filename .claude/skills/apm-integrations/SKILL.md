@@ -4,13 +4,13 @@ description: |
   dd-trace-py integration development guide. Use when creating, modifying, or
   debugging contrib integrations in the Python tracer. Covers the patch module
   system, context_with_data, context_with_event (new), registration, testing
-  with riot, and common anti-patterns. LLM/AI integrations should use this
+  with uv, and common anti-patterns. LLM/AI integrations should use this
   skill for APM-side workflow only; use llmobs-integrations for LLMObs-specific
   lifecycle, extraction, streaming, and VCR guidance. Pin is DEPRECATED.
   Triggers: "dd-trace-py", "ddtrace", "contrib", "integration", "patch.py",
   "trace_handlers", "PATCH_MODULES", "context_with_data", "context_with_event",
   "TracingEvent", "VCR", "cassette", "generative-ai", "LLM integration",
-  "riot", "riotfile", "suitespec", "new integration", "wrap", "unwrap".
+  "uv", "test environment", "suitespec", "new integration", "wrap", "unwrap".
 ---
 
 # dd-trace-py APM Integrations

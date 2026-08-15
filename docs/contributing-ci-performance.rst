@@ -95,9 +95,10 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Shared build and cache setup remains on the critical path
      - High
      - Reusing one ddtrace base per Python version works, but observed base builds took 243 to 340 seconds before
-       dependent jobs could run.
-     - Time artifact transfer and uv materialization separately, then make immutable artifacts available per Python
-       version as soon as they are ready.
+       dependent jobs could run. Each lane also created a nested extension-cache venv and installed three unlocked
+       build packages.
+     - The nested venv is removed on the migration branch. Time artifact transfer and uv materialization separately,
+       then make immutable artifacts available per Python version as soon as they are ready.
    * - 5
      - Suite selectors schedule duplicate environments
      - High
@@ -126,9 +127,9 @@ rank does not imply that an optimization may relax the isolation rules above.
    * - 9
      - Test configuration has multiple sources and slow generated copies
      - Medium
-     - Suite routing, Riot environments, uv launch metadata, YAML templates, and generated jobs repeat related
-       concepts. The baseline started one Riot subprocess per suite to calculate cache keys. Full local generation
-       took 24.6 seconds; the observed CI configuration job took 88 to 97 seconds.
+     - Suite routing, uv environment nodes, launch metadata, YAML templates, and generated jobs still repeat related
+       concepts. The baseline started one environment-tool subprocess per suite to calculate cache keys. Full local
+       generation took 24.6 seconds; the observed CI configuration job took 88 to 97 seconds.
      - Cache keys are now calculated in-process, cutting local generation to 0.69 seconds. The next two CI jobs took
        86 and 28 seconds, down from 97. Next, introduce one suite model with isolation and partitioning fields.
 
@@ -167,7 +168,7 @@ Success gates:
 2. Balance by duration, not hash count
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``get-riot-hashes.sh`` sorts hashes and ``ci-split-input.sh`` assigns them round-robin. The generator also scales
+``get-test-environment-ids.sh`` sorts IDs and ``ci-split-input.sh`` assigns them round-robin. The generator also scales
 toward 200 jobs using environment counts. Neither decision uses historical duration or fixed job startup cost.
 Tracer currently uses one environment per job, so hash ordering can improve queue priority but cannot shorten the
 slowest environment. Reducing its critical path requires test-node partitioning inside long environments.
@@ -199,7 +200,7 @@ Proposed experiment:
 #. Run reusable tests without the test agent. Start agent-backed lanes only when their manifest is non-empty.
 #. Keep one test agent per CI job initially. Measure readiness, per-session handshake, flush, comparison, and cleanup
    separately before deciding whether more sidecars are worthwhile.
-#. Replace the Riot ``wait`` environment with a small runner-owned readiness probe. The current probe requires the
+#. Replace the ``wait`` environment with a small runner-owned readiness probe. The current probe requires the
    Python 3.9 base and a large service-client dependency set even for jobs testing another Python version.
 
 Do not share a single snapshot session between tests, and do not move snapshot tests into a reused worker to save
@@ -208,8 +209,8 @@ startup time.
 4. Preserve useful build reuse and remove avoidable setup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The base environment is built once per required Python version and downloaded by dependent jobs. This is the useful
-part of the existing Riot design and should remain under uv. The next gains are in cache hits, artifact size, and
+The base environment is built once per required Python version and downloaded by dependent jobs. This build-once
+reuse remains in the uv design. The next gains are in cache hits, artifact size, and
 allowing each Python-version lane to start as soon as its own artifact and pre-checks are ready.
 
 Proposed experiment:
@@ -220,6 +221,10 @@ Proposed experiment:
 #. Key an immutable dependency prefix by Python version, lock digest, platform, and uv version. Let test jobs pull it
    without uploading the same data concurrently.
 #. Keep compiler caches separate from pip and uv caches so their policies and retention can differ.
+
+The migration branch now runs ``ext_cache.py`` as a uv script with declared build dependencies. This removes the
+per-Python ``ext_cache_venv`` lifecycle and its repeated direct pip install while preserving the exact interpreter
+needed to calculate extension suffixes.
 
 5. Reject overlapping suite membership
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -312,7 +317,7 @@ small by including stable templates rather than copying and mutating a complete 
 missing locks, overlapping environment membership, unclassified snapshot tests, and invalid service combinations.
 
 The migration branch also removed a subprocess per suite from configuration generation. The old generator invoked
-Riot separately to list each suite's environment hashes before hashing their lock files. It now reuses the hashes
+the environment tool separately to list each suite's IDs before hashing their lock files. It now reuses the IDs
 collected during the single environment pass and calculates the same cache key in-process. Full 203-suite generation
 dropped from 24.6 to 0.69 seconds locally; the required-suite phase dropped from 24.6 to 0.31 seconds. The next real
 CI configuration jobs took 86 and then 28 seconds, down from 97 seconds. The spread, and the 88-second main reference,
@@ -388,23 +393,59 @@ environment hashes, 193 resolved names, 203 suite selections, commands, dependen
 Anonymous inheritance containers below the root then fell from 13 to zero while all 197 named declarations remained.
 The contract digest and every environment hash stayed unchanged.
 
-One anonymous leaf remains at depth three under the named ``tracer-python-optimize`` node. It is a concrete Python
-variant, not an inheritance container; moving it would remove or alter a named selection boundary. CI now rejects a
-new anonymous container and rejects any resolved-contract change unless the snapshot is reviewed explicitly.
+Before deletion, one anonymous leaf remained at depth three under the named ``tracer-python-optimize`` node. It was a
+concrete Python variant rather than an inheritance container. The final JSON inventory keeps that resolved variant
+inside the named node and has no anonymous grouping layers.
 
 2026-08-15, uv inventory and base-build experiment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Local routing, direct execution, and CI generation now read a flat JSON inventory; none imports Riot. The inventory
+Local routing, direct execution, and CI generation now read a flat JSON inventory. The inventory
 factors seven shared dependencies and 12 base variables into ``core.json``, while retaining all 1,936 instances and
-1,886 stable IDs. The dual-source guard verifies every named and suite selection during the transition.
+1,886 stable IDs. The final inventory is sharded by 193 preserved named nodes; every file remains below the CI size
+limit, and validation covers selection order, definition references, IDs, and lock completeness.
 
 The first Python 3.12 uv editable build spent 46.65 seconds preparing ddtrace and 0.16 seconds installing it. A warm
 fingerprint check, including container startup, took 1.97 seconds. These local numbers are not directly comparable
 to the earlier 243-to-340-second CI jobs because native outputs and compiler caches were warm. The next pushed CI run
 must measure a clean producer before treating the difference as a pipeline win. A dependency-prefix cache bug found
 during this experiment was fixed by including the base fingerprint; otherwise console-script shebangs kept selecting
-the former Riot interpreter.
+an obsolete base interpreter.
+
+2026-08-15, Hatch canary and direct-uv decision
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The first Hatch Python 3.12 tracer canary created and installed its own environment. It failed three attempts after
+roughly 4, 20, and 14 minutes, so merely changing the environment manager did not preserve build reuse. A second
+attempt downloaded the existing base artifact but still failed because Hatch expected ownership of the environment.
+
+The successful canary explicitly pointed Hatch at the already-built Python 3.12 environment. Its pending-to-success
+interval was 555 seconds. The equivalent existing tracer shard in the same pipeline took 565 seconds. The 10-second,
+1.8 percent difference is within single-run noise and does not establish a Hatch test-runtime win. It does show that
+Hatch can preserve performance only after custom wiring makes it reuse the same base that uv can execute directly.
+
+The direct-uv runner keeps that build-once behavior without a second environment model, Hatch bootstrap, template
+matrix, or path-ownership workaround. Hatch therefore adds configuration and failure modes without a measured CI
+benefit for this repository. uv remains the dependency resolver, lock compiler, base builder, layer installer, and
+command launcher.
+
+2026-08-15, first full uv checkpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commit ``0d13ea1a36`` was the first checkpoint that routed every generated test job through uv. The configuration
+job succeeded. The repository file-size check rejected the original monolithic environment inventory, and all six
+Python base-build jobs failed before test consumers could start. Internal job traces were unavailable during the
+investigation because the GitLab endpoint was unreachable from the development network.
+
+The size failure is fixed by sharding resolved environments across the 193 preserved named nodes; validation now
+rejects JSON files above 100 KB. The builder also resolves the exact preinstalled CI interpreter instead of allowing
+uv to select or download one. This base-build change remains unvalidated until the next real CI run, so it is a
+corrective hypothesis rather than a measured win.
+
+An exact local smoke test of the replacement extension-cache command found a separate regression before it reached
+CI: setuptools tried to fetch ``patchelf`` through pip, but uv script environments do not seed pip. Declaring the
+same conditional ``patchelf`` dependency as the project build configuration fixed the command. The clean restore
+path now completes without recreating the nested venv.
 
 Next sequence
 -------------
@@ -412,6 +453,6 @@ Next sequence
 #. Add phase timing and isolation metadata without changing execution.
 #. Replace count-based partitioning with duration-aware packing for tracer, then compare wall time and runner minutes.
 #. Route snapshot and span-producing tests through clean-process lanes with a contamination stress test.
-#. Split non-agent tests from snapshot jobs and replace the Python 3.9 Riot wait environment.
+#. Split non-agent tests from snapshot jobs and replace the Python 3.9 wait environment.
 #. Consolidate subprocess launchers and narrow retry conditions.
-#. Split cache ownership, remove Riot metadata, and make the suite model the single source for local and CI runs.
+#. Split cache ownership and make the suite model the single source for local and CI runs.

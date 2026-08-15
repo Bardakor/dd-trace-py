@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-"""Validate that every pinned version in riot lockfiles is past the cooldown.
+"""Validate that every pinned version in test environment locks is past the cooldown.
 
 This is the defense-in-depth half of the TEST-CD (APMLP-1362) supply-chain
-hardening work. ``scripts/freshvenvs.py`` already prevents the daily
-"update riot lockfiles" workflow from *triggering* on a too-fresh direct
-package, but once a lockfile recompile runs, riot calls
-``python -m piptools compile`` which has no native ``--exclude-newer``
-equivalent and may therefore resolve transitive dependencies to versions
-that are younger than the cooldown.
+hardening work. ``scripts/find-outdated-test-environments.py`` prevents the daily lock workflow
+from triggering on a too-fresh direct package, while uv's ``--exclude-newer``
+keeps newly resolved transitive dependencies behind the same cutoff.
 
-This script walks one or more lockfiles (``.riot/requirements/*.txt`` by
+This script walks one or more lockfiles (``tests/environments/locks/*.txt`` by
 default), extracts every ``name==version`` pin, queries PyPI for each
 version's upload time, and exits non-zero if any pin is younger than
 ``COOLDOWN_DAYS``. CI is expected to run it after
-``scripts/compile-and-prune-test-requirements`` and before creating the
+``scripts/compile-test-environment-locks`` and before creating the
 update PR.
 
 The intent matches the cross-language cooldown standard documented in
@@ -23,7 +20,7 @@ Usage::
 
     python scripts/check_lockfile_cooldown.py [--cooldown-days 2] [PATH ...]
 
-PATH defaults to all ``.riot/requirements/*.txt`` lockfiles in the repo.
+PATH defaults to all ``tests/environments/locks/*.txt`` files in the repo.
 """
 
 import argparse
@@ -39,10 +36,10 @@ import urllib.error
 import urllib.request
 
 
-# Keep this in sync with scripts/freshvenvs.py::COOLDOWN_DAYS.
+# Keep this in sync with scripts/find-outdated-test-environments.py::COOLDOWN_DAYS.
 COOLDOWN_DAYS = 2
 
-# Matches the ``name==version`` form pip-tools emits. Anchored to the
+# Matches the ``name==version`` form the lock compiler emits. Anchored to the
 # start of the line, tolerant of trailing inline comments / hash
 # specifiers / extras (e.g. ``flask[async]==3.0.0  # comment``).
 PIN_RE = re.compile(
@@ -56,10 +53,10 @@ PIN_RE = re.compile(
     re.VERBOSE,
 )
 
-# These names appear in pip-tools output but PyPI either doesn't host them
+# These names can appear in lock output but PyPI either doesn't host them
 # or hosts them under different names. Ignored to avoid spurious failures.
 _PYPI_SKIP = {
-    # pip / setuptools / wheel get re-resolved by pip-compile but their
+    # pip / setuptools / wheel get re-resolved by the lock compiler but their
     # cooldown is enforced separately at the container/base image layer.
     "pip",
     "setuptools",
@@ -178,7 +175,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "paths",
         nargs="*",
         type=pathlib.Path,
-        help="Lockfile paths. Defaults to .riot/requirements/*.txt.",
+        help="Lockfile paths. Defaults to tests/environments/locks/*.txt.",
     )
     parser.add_argument(
         "--cooldown-days",
@@ -197,7 +194,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.paths:
         paths = [p for p in args.paths if p.suffix == ".txt"]
     else:
-        paths = sorted(pathlib.Path(".riot/requirements").glob("*.txt"))
+        paths = sorted(pathlib.Path("tests/environments/locks").glob("*.txt"))
 
     if not paths:
         print("No lockfiles to check.", file=sys.stderr)

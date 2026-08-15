@@ -43,7 +43,7 @@ def write_metadata(identifier: str, instances, base: Path) -> Path:
         "base_digest": (base / ".dd-uv-base").read_text().strip(),
         "hash": first.id,
         "python": first.python,
-        "requirements": f".riot/requirements/{first.id}.txt",
+        "requirements": f"tests/environments/locks/{first.id}.txt",
         "uv": str(uv),
         "uv_version": version("uv"),
         "instances": [
@@ -100,7 +100,7 @@ def main() -> int:
             print(f"Base environment was not created for Python {python_hint}", file=sys.stderr)
             return 2
 
-    requirements = ROOT / ".riot" / "requirements" / f"{instances[0].id}.txt"
+    requirements = test_environments.LOCK_ROOT / f"{instances[0].id}.txt"
     if not requirements.is_file():
         print(f"Missing requirements lock: {requirements}", file=sys.stderr)
         return 2

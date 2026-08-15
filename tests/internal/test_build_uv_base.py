@@ -33,6 +33,7 @@ def test_build_creates_and_reuses_a_fingerprinted_base(build_uv_base_mod, monkey
     monkeypatch.setattr(build_uv_base_mod.sys, "executable", str(executable))
     monkeypatch.setattr(build_uv_base_mod, "build_digest", lambda python, uv_version: "input-digest")
     monkeypatch.setattr(build_uv_base_mod, "version", lambda package: "0.12.5")
+    monkeypatch.setattr(build_uv_base_mod, "_python_executable", lambda hint: "/python/3.12")
 
     destination = base_root / "py3.12"
 
@@ -47,6 +48,7 @@ def test_build_creates_and_reuses_a_fingerprinted_base(build_uv_base_mod, monkey
 
     assert build_uv_base_mod.build("3.12") == destination
     assert mocked_run.call_count == 2
+    assert mocked_run.call_args_list[0].args[0][3] == "/python/3.12"
     assert (destination / ".dd-uv-base").read_text() == "input-digest\n"
 
     mocked_run.reset_mock()

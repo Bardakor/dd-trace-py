@@ -1,0 +1,65 @@
+{
+  "instances": [
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "fbc5398a589cffcf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "70966a9",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask312",
+      "legacy_long_id": "70966a999568761",
+      "position": 129,
+      "python": "3.14"
+    },
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "9ebec5a95856d4cf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "1f6cc38",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask223_werkzeug20_markupsafe20",
+      "legacy_long_id": "1f6cc38bc678f081",
+      "position": 130,
+      "python": "3.9"
+    },
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "9ebec5a95856d4cf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "175eeba",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask223_werkzeug20_markupsafe20",
+      "legacy_long_id": "175eebabc27bf2d1",
+      "position": 131,
+      "python": "3.10"
+    },
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "9ebec5a95856d4cf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "19753a5",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask223_werkzeug20_markupsafe20",
+      "legacy_long_id": "19753a5ea6f6e1b1",
+      "position": 132,
+      "python": "3.11"
+    },
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "9ebec5a95856d4cf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "1a7c7c3",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask223_werkzeug20_markupsafe20",
+      "legacy_long_id": "1a7c7c34effcc95b",
+      "position": 133,
+      "python": "3.12"
+    },
+    {
+      "command": "fc075d6c69f9d18f",
+      "dependencies": "9ebec5a95856d4cf",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "7dec5d4",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_requests_gunicorn_httpretty11_pytest-randomly_xmltodict_django_flask223_werkzeug20_markupsafe20",
+      "legacy_long_id": "7dec5d421feb722",
+      "position": 134,
+      "python": "3.13"
+    }
+  ],
+  "name": "telemetry"
+}

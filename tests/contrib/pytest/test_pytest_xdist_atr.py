@@ -3,7 +3,7 @@
 The tests in this module only validate the exit status from pytest-xdist.
 """
 
-import os  # Just for the RIOT env var check
+import os
 from unittest import mock
 
 import pytest
@@ -14,10 +14,9 @@ from tests.contrib.pytest.test_pytest import PytestTestCaseBase
 
 
 ######
-# Skip these tests if they are not running under riot
-riot_env_value = os.getenv("RIOT", None)
-if not riot_env_value:
-    pytest.importorskip("xdist", reason="Auto Test Retries + xdist tests, not running under riot")
+# Skip these tests unless the managed environment installed xdist.
+if not os.getenv("DD_TEST_ENV_ACTIVE"):
+    pytest.importorskip("xdist", reason="Auto Test Retries + xdist tests need the managed test environment")
 ######
 
 

@@ -1,0 +1,55 @@
+{
+  "instances": [
+    {
+      "command": "7e661c31c40db910",
+      "dependencies": "2a2c17b18ca336be",
+      "environment": "fd6f5faeda55f084",
+      "id": "1c97cf2",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_uwsgi",
+      "legacy_long_id": "1c97cf216f01bc8f",
+      "position": 124,
+      "python": "3.9"
+    },
+    {
+      "command": "7e661c31c40db910",
+      "dependencies": "2a2c17b18ca336be",
+      "environment": "fd6f5faeda55f084",
+      "id": "3d924d3",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_uwsgi",
+      "legacy_long_id": "3d924d3b3f3707b",
+      "position": 125,
+      "python": "3.10"
+    },
+    {
+      "command": "7e661c31c40db910",
+      "dependencies": "2a2c17b18ca336be",
+      "environment": "fd6f5faeda55f084",
+      "id": "f953f1c",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_uwsgi",
+      "legacy_long_id": "f953f1c77633baf",
+      "position": 126,
+      "python": "3.11"
+    },
+    {
+      "command": "7e661c31c40db910",
+      "dependencies": "2a2c17b18ca336be",
+      "environment": "fd6f5faeda55f084",
+      "id": "16f089d",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_uwsgi",
+      "legacy_long_id": "16f089dc9cd5a5d3",
+      "position": 127,
+      "python": "3.12"
+    },
+    {
+      "command": "7e661c31c40db910",
+      "dependencies": "2a2c17b18ca336be",
+      "environment": "fd6f5faeda55f084",
+      "id": "190d82d",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_uwsgi",
+      "legacy_long_id": "190d82ddca44df88",
+      "position": 128,
+      "python": "3.13"
+    }
+  ],
+  "name": "tracer-uwsgi"
+}

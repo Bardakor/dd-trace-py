@@ -148,7 +148,7 @@ class Test_Flask(_Test_Flask_Base, utils.Contrib_TestClass_For_Threats):
         path = re.sub(r"<[a-z_]+>", "test", path)
         return path
 
-    # Helper unit tests live on Test_Flask so the riot venv ``::Test_Flask`` selector picks them up.
+    # Helper unit tests live on Test_Flask so the environment's ``::Test_Flask`` selector picks them up.
 
     def test_collect_flask_routes_registers_every_method_served(self, _isolated_endpoints):
         """User methods plus Werkzeug-auto-HEAD and Flask-auto-OPTIONS are all part of the attack surface."""

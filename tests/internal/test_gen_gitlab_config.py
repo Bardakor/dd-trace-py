@@ -106,7 +106,6 @@ def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_
     assert 'echo "UNPIN_DEPENDENCIES: false"' in config
     assert 'if [[ "false" == "true" ]]' in config
     assert './scripts/build-uv-base "$PYTHON_VERSION"' in config
-    assert "riot " not in config
     assert "$(curl" not in config
     assert "$DD_API_KEY" not in config
 
@@ -133,11 +132,13 @@ def test_collect_all_suite_venv_info_rejects_overlapping_suite_membership(gen_gi
 
 
 def test_requirements_cache_key_matches_sorted_lock_contents(gen_gitlab_config_mod, monkeypatch, tmp_path):
-    requirements = tmp_path / ".riot" / "requirements"
+    import test_environments
+
+    requirements = tmp_path / "locks"
     requirements.mkdir(parents=True)
     (requirements / "abc1234.txt").write_text("z-package==1\na-package==1\n")
     (requirements / "def5678.txt").write_text("m-package==1\n")
-    monkeypatch.setattr(gen_gitlab_config_mod, "ROOT", tmp_path)
+    monkeypatch.setattr(test_environments, "LOCK_ROOT", requirements)
 
     expected = gen_gitlab_config_mod.hashlib.sha256(b"a-package==1\nm-package==1\nz-package==1\n").hexdigest()
 

@@ -4,85 +4,28 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 from typing import Union
 
 
 class IntegrationUpdateOrchestrator:
-    TOOLING_VENV_DIR = ".venv-registry-tools"
-    TOOLING_DEPS = ["pyyaml", "riot", "filelock"]
+    TOOLING_DEPS = ["pyyaml", "filelock"]
     REGISTRY_UPDATER_MODULE = "registry_update_helpers.integration_registry_updater"
     REGISTRY_UPDATER_CLASS = "IntegrationRegistryUpdater"
     MAIN_UPDATE_SCRIPT = "scripts/integration_registry/update_and_format_registry.py"
     UPDATER_LOCK_FILE = "scripts/integration_registry/registry.yaml.lock"
-    LOCK_MAX_WAIT_SECONDS = 15
 
     def __init__(self, project_root: str):
         self.project_root = project_root
-        self.tooling_env_path = os.path.join(project_root, self.TOOLING_VENV_DIR)
-        # Define path for the venv setup lock relative to project root
-        self.venv_lock_file_path = os.path.join(project_root, ".venv-registry-tools.lock")
         self.updater_lock_file_path = os.path.join(project_root, self.UPDATER_LOCK_FILE)
 
-    def _acquire_lock(self, lock_file_path):
-        start_time = time.monotonic()
-        while time.monotonic() - start_time < self.LOCK_MAX_WAIT_SECONDS:
-            try:
-                fd = os.open(lock_file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.close(fd)
-                return True
-            except FileExistsError:
-                time.sleep(0.5)
-            except Exception as e:
-                print(f"Error acquiring lock {lock_file_path}: {e}", file=sys.stderr)
-                return False
-        print(f"Timeout acquiring lock {lock_file_path}", file=sys.stderr)
-        return False
-
-    def _release_lock(self, lock_file_path):
-        try:
-            os.remove(lock_file_path)
-        except Exception:
-            pass
-
-    def _ensure_tooling_venv(self):
-        """Ensures the integration registry tools venv is created and up to date."""
-        tooling_python = os.path.join(self.tooling_env_path, "bin", "python")
-        pip_timeout = 20
-
-        # If tooling python does not exist, the venv is either missing or corrupted.
-        # If the directory exists, remove it to ensure a clean slate for venv creation.
-        if os.path.exists(self.tooling_env_path):
-            try:
-                shutil.rmtree(self.tooling_env_path)
-            except OSError as e:
-                print(f"Error removing tooling venv '{self.tooling_env_path}': {e}", file=sys.stderr)
-                return False
-
-        if os.path.exists(tooling_python):
-            try:
-                cmd = [tooling_python, "-m", "pip", "install", "-U"] + self.TOOLING_DEPS
-                if self._run_subprocess(cmd, pip_timeout, self.project_root, "pip install -U", verbose=False):
-                    return True
-            except Exception:
-                return True
-
-        try:
-            cmd = ["python3", "-m", "venv", self.tooling_env_path]
-            if not self._run_subprocess(cmd, 20, self.project_root, "venv creation", verbose=False):
-                return False
-        except Exception:
-            return False
-
-        if not os.path.exists(tooling_python):
-            return False
-        try:
-            cmd = [tooling_python, "-m", "pip", "install"] + self.TOOLING_DEPS
-            if not self._run_subprocess(cmd, pip_timeout, self.project_root, "pip install", verbose=False):
-                return False
-            return True
-        except Exception:
-            return False
+    def _uv_command(self) -> list[str]:
+        uv = os.environ.get("DD_TEST_UV") or shutil.which("uv")
+        if uv is None:
+            return []
+        command = [uv, "run", "--no-project"]
+        for dependency in self.TOOLING_DEPS:
+            command.extend(("--with", dependency))
+        return command + ["--", "python"]
 
     def _run_subprocess(self, cmd: list, timeout: int, cwd: str, description: str, verbose: bool = True) -> bool:
         """Helper to run subprocess. Prints stderr on failure by default."""
@@ -144,28 +87,9 @@ class IntegrationUpdateOrchestrator:
 
     def run(self, data_file_path: str):
         """Main method for orchestrating the integrationregistry update process."""
-        venv_lock_acquired = False
         updater_succeeded = False
 
         try:
-            # Remove potentially stale venv lock file
-            if os.path.exists(self.venv_lock_file_path):
-                try:
-                    os.remove(self.venv_lock_file_path)
-                except OSError:
-                    pass
-
-            # Setup Tooling Venv
-            try:
-                if not self._acquire_lock(self.venv_lock_file_path):
-                    return
-                venv_lock_acquired = True
-                if not self._ensure_tooling_venv():
-                    return
-            finally:
-                if venv_lock_acquired:
-                    self._release_lock(self.venv_lock_file_path)
-
             # Remove potentially stale updater lock file
             if os.path.exists(self.updater_lock_file_path):
                 try:
@@ -174,8 +98,8 @@ class IntegrationUpdateOrchestrator:
                     pass
 
             # Run Update Process
-            tooling_python = os.path.join(self.tooling_env_path, "bin", "python")
-            if not os.path.exists(tooling_python):
+            uv_command = self._uv_command()
+            if not uv_command:
                 return
 
             # 1. Run IntegrationRegistryUpdater
@@ -187,7 +111,7 @@ class IntegrationUpdateOrchestrator:
                 f"updater = {self.REGISTRY_UPDATER_CLASS}(); success = updater.run('{escaped_path}'); "
                 f"sys.exit(0 if success else 1);"
             )
-            cmd_updater = [tooling_python, "-c", py_cmd]
+            cmd_updater = [*uv_command, "-c", py_cmd]
             updater_succeeded = self._run_subprocess(
                 cmd_updater, 20, self.project_root, self.REGISTRY_UPDATER_CLASS, verbose=False
             )
@@ -196,7 +120,7 @@ class IntegrationUpdateOrchestrator:
             if updater_succeeded:
                 script_path = os.path.join(self.project_root, self.MAIN_UPDATE_SCRIPT)
                 if os.path.exists(script_path):
-                    cmd_main = [tooling_python, script_path]
+                    cmd_main = [*uv_command, script_path]
                     self._run_subprocess(cmd_main, 20, self.project_root, "Main Update Script", verbose=True)
 
         finally:

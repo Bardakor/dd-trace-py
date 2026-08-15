@@ -1,0 +1,273 @@
+{
+  "0d2f06e761527ea1": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "0",
+    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0"
+  },
+  "0f4b058d1f23d0d7": {
+    "PYTEST_PLUGINS": "celery.contrib.pytest"
+  },
+  "1bdb8d1fe229e545": {
+    "DD_CIVISIBILITY_LOG_LEVEL": "none",
+    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0",
+    "PYTHONOPTIMIZE": "1",
+    "_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS": "50"
+  },
+  "23eb861785b58ceb": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONMALLOC": "pymalloc_debug",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "3360a6a09377f054": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "0",
+    "DD_IAST_REQUEST_SAMPLING": "100"
+  },
+  "37f3fe756c979651": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONMALLOC": "malloc",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "3ece86b108f72b68": {
+    "AIOHTTP_NO_EXTENSIONS": "1"
+  },
+  "41f8f8442d217e68": {
+    "_DD_TRACE_GRPC_AIO_ENABLED": "true"
+  },
+  "4923060478ee2989": {
+    "AGENT_VERSION": "latest"
+  },
+  "4a0cb9ba8ff9be87": {
+    "DD_IAST_ENABLED": "true",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec.,scripts.iast."
+  },
+  "555b04e7219ffd5e": {
+    "AGENT_VERSION": "testagent",
+    "DD_API_SECURITY_SAMPLE_DELAY": "0",
+    "DD_APPSEC_ENABLED": "true",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_ENABLED": "false",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+  },
+  "5d46d0a2689a04cd": {
+    "DD_IAST_DEDUPLICATE_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec"
+  },
+  "61fdf3711fa729be": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONMALLOC": "pymalloc",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "639ad6e932b6e110": {
+    "DD_AGENT_PORT": "9126",
+    "DD_PYTEST_USE_NEW_PLUGIN": "false"
+  },
+  "6a995a1ceb82b54d": {
+    "AGENT_VERSION": "testagent",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+  },
+  "700e6a6a0dac5103": {
+    "DD_DATA_STREAMS_ENABLED": "true",
+    "_DD_TRACE_STATS_WRITER_INTERVAL": "1000000000"
+  },
+  "763964f27649ff2a": {
+    "DD_AGENT_PORT": "9126",
+    "DD_PATCH_MODULES": "unittest:true",
+    "DD_UNITTEST_SERVICE": "dd-trace-py"
+  },
+  "766a371114eeed70": {
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_VULNERABILITIES_PER_REQUEST": "100000",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "7939de71abcb452d": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "7af9ee2f01e1ef14": {},
+  "7b255004695ac152": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "0"
+  },
+  "7c49766946c46b37": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONMALLOC": "malloc_debug",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "807ce7b982ee2e7e": {
+    "DD_TRACE_WRAP_SPAN_NAME_INCLUDE_CLASS": "true"
+  },
+  "87062f9dc46d358b": {
+    "AGENT_VERSION": "testagent",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "887f01fdfb6a214f": {
+    "AGENT_VERSION": "testagent",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_VULNERABILITIES_PER_REQUEST": "100000",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "9694ac6b9508c6c9": {
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "9dea6e503bff9277": {
+    "AGENT_VERSION": "testagent",
+    "DD_API_SECURITY_SAMPLE_DELAY": "0",
+    "DD_APPSEC_ENABLED": "true",
+    "DD_IAST_ENABLED": "false",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+  },
+  "9e5f0bb457e89170": {
+    "DD_AGENT_PORT": "9126"
+  },
+  "a45843a0c63b7b31": {
+    "DD_APPSEC_ENABLED": "1",
+    "DD_APPSEC_SCA_ENABLED": "1",
+    "DD_CODE_ORIGIN_FOR_SPANS_ENABLED": "1",
+    "DD_DYNAMIC_INSTRUMENTATION_ENABLED": "1",
+    "DD_EXCEPTION_REPLAY_ENABLED": "1",
+    "DD_IAST_ENABLED": "1",
+    "DD_PROFILING_ENABLED": "1",
+    "DD_PROFILING_LOCK_ENABLED": "0",
+    "DD_REMOTE_CONFIGURATION_ENABLED": "1",
+    "DD_RUNTIME_METRICS_ENABLED": "1"
+  },
+  "a4c9ad0d5d2b670e": {
+    "DD_TRACE_OTEL_ENABLED": "true",
+    "SDK_EXPORTER_INSTALLED": "1"
+  },
+  "a4fca756e7976bb1": {
+    "BROWSER": "true",
+    "DD_CIVISIBILITY_ITR_ENABLED": "0",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "PYTHONFAULTHANDLER": "1",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "ac6d84e42d0f47e1": {
+    "DD_AGENT_PORT": "9126",
+    "DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED": "false",
+    "_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER": "0"
+  },
+  "ad88c4bc532aad1f": {
+    "DD_CIVISIBILITY_FLAKY_RETRY_ENABLED": "0"
+  },
+  "b95104b9b3fc54dd": {
+    "DD_CIVISIBILITY_LOG_LEVEL": "none",
+    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0",
+    "DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED": "false",
+    "_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS": "50"
+  },
+  "bda329f9602d9873": {
+    "DD_SERVICE": "bottle-app"
+  },
+  "c6d20f0bb0d85737": {
+    "DD_PATCH_MODULES": "jinja2:false",
+    "DD_SERVICE": "test.flask.service"
+  },
+  "cc7061d7a99737fe": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "0",
+    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0",
+    "PYTHONWARNINGS": "ignore:This process:DeprecationWarning::"
+  },
+  "ce6db4bae4e3daa0": {
+    "CPUCOUNT": "12",
+    "DD_PROFILE_TEST_GEVENT": "1",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events"
+  },
+  "dc5dfe2eb32ab135": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "0",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "PYTHONWARNINGS": "ignore::UserWarning:ddtrace.internal.module"
+  },
+  "e04cc57893959724": {
+    "CPUCOUNT": "12",
+    "DD_PROFILING_ENABLE_ASSERTS": "1",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY": "1",
+    "PYTHONWARNINGS": "ignore::UserWarning:gevent.events",
+    "USE_UVLOOP": "1"
+  },
+  "e092992ed5342466": {
+    "AGENT_VERSION": "testagent",
+    "DD_API_SECURITY_SAMPLE_DELAY": "0",
+    "DD_IAST_ENABLED": "false",
+    "DD_REMOTE_CONFIGURATION_ENABLED": "true",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+  },
+  "e5b4117c59323a85": {
+    "DD_IAST_DEDUPLICATE_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_VULNERABILITIES_PER_REQUEST": "100000",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec"
+  },
+  "ecb6c7245b19761d": {
+    "DD_TRACE_ENABLED": "false"
+  },
+  "ed1c5e70c17a7edd": {
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_MAX_CONCURRENT_REQUEST": "1000",
+    "DD_IAST_MAX_RANGE_COUNT": "10000",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_TRUNCATION_MAX_VALUE_LENGTH": "10000",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "f05d5023f3a1bbf5": {
+    "AGENT_VERSION": "testagent"
+  },
+  "f1db46322997a7b4": {
+    "DD_CIVISIBILITY_ITR_ENABLED": "false",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_ENABLED": "true",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_VULNERABILITIES_PER_REQUEST": "100",
+    "DD_REMOTE_CONFIGURATION_ENABLED": "true",
+    "PYDONTWRITEBYTECODE": "1",
+    "PYTHONUNBUFFERED": "1",
+    "_DD_IAST_DEBUG": "false"
+  },
+  "f6a90215a1b66918": {
+    "DD_TRACE_OTEL_ENABLED": "true"
+  },
+  "fa2ef6e616cbdc16": {
+    "AGENT_VERSION": "testagent",
+    "DD_API_SECURITY_SAMPLE_DELAY": "0",
+    "DD_APPSEC_ENABLED": "true",
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_ENABLED": "true",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_WEAK_HASH_ALGORITHMS": "NOTexist",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126"
+  },
+  "fc75401517869cbe": {
+    "DD_IAST_DEDUPLICATION_ENABLED": "false",
+    "DD_IAST_REQUEST_SAMPLING": "100",
+    "DD_IAST_VULNERABILITIES_PER_REQUEST": "100000",
+    "DD_TRACE_AGENT_URL": "http://testagent:9126",
+    "_DD_IAST_PATCH_MODULES": "benchmarks.,tests.appsec."
+  },
+  "fd6f5faeda55f084": {
+    "DD_CIVISIBILITY_LOG_LEVEL": "none",
+    "DD_INSTRUMENTATION_TELEMETRY_ENABLED": "0",
+    "_DD_CIVISIBILITY_PARTIAL_FLUSH_MIN_SPANS": "50"
+  }
+}

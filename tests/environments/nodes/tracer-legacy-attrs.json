@@ -1,0 +1,15 @@
+{
+  "instances": [
+    {
+      "command": "b0b15472a6740101",
+      "dependencies": "f6dbce89b99d2f52",
+      "environment": "fd6f5faeda55f084",
+      "id": "cf86081",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_msgpack_attrs2210_structlog_httpretty_wheel_fastapi_httpx0280_pytest-randomly_setuptools_boto3_freezegun_cattrs2320",
+      "legacy_long_id": "cf860818404f1ff",
+      "position": 123,
+      "python": "3.9"
+    }
+  ],
+  "name": "tracer-legacy-attrs"
+}

@@ -181,8 +181,7 @@ are not yet any expected spans stored for it, so we need to create some.
 .. code-block:: bash
 
    $ docker compose up -d testagent <container>
-   $ scripts/ddtest
-   > DD_AGENT_PORT=9126 riot -v run --pass-env <test_suite_name>
+   $ DD_AGENT_PORT=9126 scripts/run-tests tests/contrib/<integration_name>
 
 10. Check ``git status`` and observe that some new files have been created under ``tests/snapshots/``.
     These files contain JSON representations of the spans created by the instrumentation that ran
@@ -241,8 +240,8 @@ The following is the check list for ensuring you have all of the components to h
 - Define `patch` and `unpatch` functions for your new integration under ``ddtrace/contrib/internal/your_integration_name``.
 - Document your integration in a ``ddtrace/contrib/internal/<integration_name>/__init__.py`` module and reference the doc string in ``docs/integrations.rst``.
 - Test code for the above in ``tests/contrib/your_integration_name``.
-- The virtual environment configurations for your tests in ``riotfile.py``.
+- The uv environment configurations for your tests under ``tests/environments``.
 - The Gitlab CI configurations for your tests in ``tests/contrib/suitespec.yml``.
 - Your integration added to ``PATCH_MODULES`` in ``ddtrace/_monkey.py`` to enable auto instrumentation for it.
 - The relevant file paths for your integration added to a suitespec file (see ``tests/README.md`` for details).
-- A release note for your addition generated with ``riot run reno new YOUR_TITLE_SLUG``, which will add ``releasenotes/notes/YOUR_TITLE_SLUG.yml``.
+- A release note for your addition generated with ``scripts/ddtest scripts/run-uv-test-env reno -- new YOUR_TITLE_SLUG``, which will add ``releasenotes/notes/YOUR_TITLE_SLUG.yml``.

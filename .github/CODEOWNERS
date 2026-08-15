@@ -30,8 +30,7 @@ tests/integration/                  @DataDog/apm-core-python
 ddtrace/constants.py                @DataDog/apm-python
 releasenotes/                       @DataDog/apm-python
 tests/snapshots/                    @DataDog/apm-python
-riotfile.py                         @DataDog/apm-python
-.riot/requirements/                 @DataDog/apm-python
+tests/environments/                 @DataDog/apm-python
 CHANGELOG.md                        @DataDog/apm-python
 ddtrace/internal/telemetry/         @DataDog/apm-python
 tests/telemetry                     @DataDog/apm-python

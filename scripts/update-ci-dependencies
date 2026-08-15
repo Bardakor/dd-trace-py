@@ -1,7 +1,9 @@
 #!/usr/bin/env scripts/uv-run-script
 # -*- mode: python -*-
 # /// script
-# dependencies = []
+# dependencies = [
+#     "uv==0.12.5",
+# ]
 # ///
 """
 Compile locked CI requirements from ci.in.
@@ -11,7 +13,7 @@ to ci/requirements/ci.txt with locked versions and hashes.
 
 Process:
 1. Read ci/requirements/ci.in
-2. Run pip-compile (or uv) to generate ci/requirements/ci.txt with locked versions
+2. Run uv to generate ci/requirements/ci.txt with locked versions
 3. CI check script validates that all pip installs in workflows match ci.in
 
 Usage:
@@ -28,17 +30,10 @@ import sys
 from pathlib import Path
 
 
-def run_pip_compile(requirements_in: Path) -> bool:
-    """
-    Run pip-compile to generate ci.txt from ci.in.
-
-    Prefers uv pip compile if available, falls back to pip-compile.
-
-    Returns True if successful, False otherwise.
-    """
+def compile_requirements(requirements_in: Path) -> bool:
+    """Generate the locked CI requirements with the pinned uv version."""
     requirements_txt = requirements_in.with_suffix(".txt")
 
-    # Try uv first (preferred, faster)
     try:
         print(f"Running uv pip compile to generate {requirements_txt}...")
         result = subprocess.run(
@@ -51,6 +46,8 @@ def run_pip_compile(requirements_in: Path) -> bool:
                 "linux",
                 "--python-version",
                 "3.11",
+                "--custom-compile-command",
+                "scripts/update-ci-dependencies",
                 "--output-file",
                 str(requirements_txt),
                 str(requirements_in),
@@ -64,48 +61,12 @@ def run_pip_compile(requirements_in: Path) -> bool:
             print(result.stderr, file=sys.stderr)
         return True
 
-    except FileNotFoundError:
-        # uv not found, try pip-compile
-        print("uv not found, trying pip-compile...")
-
     except subprocess.CalledProcessError as e:
         print(f"Error running uv pip compile: {e}", file=sys.stderr)
         if e.stdout:
             print(e.stdout, file=sys.stderr)
         if e.stderr:
             print(e.stderr, file=sys.stderr)
-        return False
-
-    # Fall back to pip-compile
-    try:
-        print(f"Running pip-compile to generate {requirements_txt}...")
-        result = subprocess.run(
-            [
-                "pip-compile",
-                "--generate-hashes",
-                "--allow-unsafe",
-                "--output-file",
-                str(requirements_txt),
-                str(requirements_in),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        print(result.stdout)
-        return True
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error running pip-compile: {e}", file=sys.stderr)
-        print(e.stdout, file=sys.stderr)
-        print(e.stderr, file=sys.stderr)
-        return False
-
-    except FileNotFoundError:
-        print("Error: Neither uv nor pip-compile found.", file=sys.stderr)
-        print("Install one of:", file=sys.stderr)
-        print("  - uv: https://github.com/astral-sh/uv", file=sys.stderr)
-        print("  - pip-tools: pip install pip-tools", file=sys.stderr)
         return False
 
 
@@ -124,7 +85,7 @@ def main() -> int:
 
     print(f"Compiling {requirements_in}...\n")
 
-    if not run_pip_compile(requirements_in):
+    if not compile_requirements(requirements_in):
         print("\n❌ Failed to generate locked requirements")
         return 1
 

@@ -3,7 +3,7 @@ graft ddtrace
 graft src
 
 recursive-exclude * **/__pycache__/*
-prune .riot/
+prune .test-env/
 prune benchmarks/
 prune releasenotes/
 prune src/native/target*

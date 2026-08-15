@@ -107,10 +107,12 @@ class IntegrationRegistryUpdater:
                 added_integrations += 1
                 continue
             else:
-                riot_venv = self._get_riot_venv_name()
+                environment_name = self._get_test_environment_name()
 
                 # update the existing integration
-                changed = self.integrations[integration_name].update(updates, update_versions=True, riot_venv=riot_venv)
+                changed = self.integrations[integration_name].update(
+                    updates, update_versions=True, environment_name=environment_name
+                )
                 if changed:
                     updated_integrations += 1
 
@@ -151,11 +153,10 @@ class IntegrationRegistryUpdater:
         except OSError as e:
             print(f"IntegrationRegistryUpdater: Failed to delete lock file: {e}", file=sys.stderr)
 
-    def _get_riot_venv_name(self):
-        """Returns the name of the riot venv if this is being run from a riot job."""
-        if os.environ.get("RIOT_VENV_NAME"):
-            # split venv name for special cases like "django:celery" to "django"
-            return os.environ.get("RIOT_VENV_NAME").split(":")[0]
+    def _get_test_environment_name(self):
+        """Return the current named test environment, if present."""
+        if os.environ.get("DD_TEST_ENV_NAME"):
+            return os.environ["DD_TEST_ENV_NAME"].split(":", 1)[0]
         return None
 
     def run(self, input_file_path_str: str) -> bool:

@@ -1,0 +1,15 @@
+{
+  "instances": [
+    {
+      "command": "7d312cc0024e21a4",
+      "dependencies": "373ae46ebf98d83a",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "fd98f16",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_reno_PyYAML601",
+      "legacy_long_id": "fd98f16c3b73b54",
+      "position": 1072,
+      "python": "3"
+    }
+  ],
+  "name": "reno"
+}

@@ -1,0 +1,15 @@
+{
+  "instances": [
+    {
+      "command": "1303b13182786d0f",
+      "dependencies": "ed1a9d0a567609f9",
+      "environment": "7af9ee2f01e1ef14",
+      "id": "2e9f3b5",
+      "identity": "mock_pytest_pytest-mock_coverage_pytest-cov_opentracing_hypothesis6451_pytest-randomly_pytest-asyncio0237_PyYAML_jsonschema",
+      "legacy_long_id": "2e9f3b594dbcadf",
+      "position": 1673,
+      "python": "3.13"
+    }
+  ],
+  "name": "integration_registry"
+}

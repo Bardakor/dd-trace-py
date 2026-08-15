@@ -1,3 +1,13 @@
+#!/usr/bin/env scripts/uv-run-script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "cmake>=3.24.2,<3.28",
+#     "cython",
+#     "patchelf>=0.17.0.0; sys_platform == 'linux'",
+#     "setuptools-rust<2",
+# ]
+# ///
 import argparse
 from pathlib import Path
 import shutil

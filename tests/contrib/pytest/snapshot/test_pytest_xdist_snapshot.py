@@ -11,10 +11,9 @@ from tests.utils import snapshot
 
 
 ######
-# Skip these tests if they are not running under riot
-riot_env_value = os.getenv("RIOT", None)
-if not riot_env_value:
-    pytest.importorskip("xdist", reason="Pytest xdist tests, not running under riot")
+# Skip these tests unless the managed environment installed xdist.
+if not os.getenv("DD_TEST_ENV_ACTIVE"):
+    pytest.importorskip("xdist", reason="Pytest xdist tests need the managed test environment")
 ######
 
 

@@ -235,7 +235,7 @@ suites:
 
 ## Running Tests
 
-Use the **run-tests** skill (`scripts/run-tests`). Never invoke `pytest`, `riot`, or `scripts/ddtest` directly.
+Use the **run-tests** skill (`scripts/run-tests`). Never invoke `pytest`, `scripts/run-uv-test-env`, or `scripts/ddtest` directly.
 
 ## Test Categories
 

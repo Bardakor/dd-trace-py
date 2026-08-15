@@ -248,9 +248,11 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
 
 def requirements_cache_key(venv_hashes: set[str]) -> str:
     """Return the cache key for the combined locked requirements of the supplied environments."""
+    import test_environments
+
     lines = []
     for venv_hash in sorted(venv_hashes):
-        requirements = ROOT / ".riot" / "requirements" / f"{venv_hash}.txt"
+        requirements = test_environments.LOCK_ROOT / f"{venv_hash}.txt"
         if requirements.is_file():
             lines.extend(requirements.read_bytes().splitlines())
 
@@ -625,7 +627,7 @@ def gen_build_docs() -> None:
             print("  script:", file=f)
             print("    - |", file=f)
             print("      git config --global --add safe.directory $CI_PROJECT_DIR", file=f)
-            print("      riot -v run -s --pass-env build_docs", file=f)
+            print("      ./scripts/run-uv-test-env --python 3.10 build_docs", file=f)
             print("      mkdir -p /tmp/docs", file=f)
             print("  artifacts:", file=f)
             print("    paths:", file=f)
@@ -663,21 +665,12 @@ def gen_pre_checks() -> None:
         paths={"docker*", "ddtrace/*", "pyproject.toml", "scripts/lint"},
     )
     check(
-        name="Run riotfile.py tests",
-        command="scripts/lint riot",
-        paths={"docker*", "riotfile.py", "pyproject.toml", "scripts/lint"},
-    )
-    check(
-        name="Check resolved test environments",
-        command=(
-            "scripts/test_env_contract.py check && scripts/test_env_contract.py check-inventory && "
-            "scripts/test_env_contract.py audit --max-anonymous-containers 0"
-        ),
+        name="Check test environments",
+        command="python scripts/test_environments.py check",
         paths={
-            "riotfile.py",
-            "scripts/test_env_contract.py",
             "scripts/test_environments.py",
-            "tests/environments/*.json",
+            "tests/environments/**/*.json",
+            "tests/environments/locks/*.txt",
             "**suitespec.yml",
         },
     )
@@ -717,7 +710,13 @@ def gen_pre_checks() -> None:
     check(
         name="Check project dependencies",
         command="scripts/check-dependency-bounds && scripts/check-dependency-ci-coverage.py",
-        paths={"pyproject.toml", "riotfile.py", ".gitlab-ci.yml", ".gitlab/**/*.yml", ".github/workflows/*.yml"},
+        paths={
+            "pyproject.toml",
+            "tests/environments/**/*.json",
+            ".gitlab-ci.yml",
+            ".gitlab/**/*.yml",
+            ".github/workflows/*.yml",
+        },
     )
     check(
         name="Check package version",
