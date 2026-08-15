@@ -15,6 +15,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX_ROOT = ROOT / ".cache" / "uv-test-prefixes"
+BOOTSTRAP_PATH = ROOT / "scripts" / "uv_compat"
 INSTALLER_SCHEMA = b"uv-test-env-v1"
 
 
@@ -81,11 +82,13 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
             "RIOT_VENV_PKGS": instance["packages"],
             "RIOT_VENV_FULL_PKGS": instance["full_packages"],
             "VIRTUAL_ENV": sys.prefix,
+            "DD_TEST_SITE_PACKAGES": str(_site_packages(prefix)),
         }
     )
-    site_packages = str(_site_packages(prefix))
     current_pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = os.pathsep.join((site_packages, current_pythonpath)) if current_pythonpath else site_packages
+    env["PYTHONPATH"] = (
+        os.pathsep.join((str(BOOTSTRAP_PATH), current_pythonpath)) if current_pythonpath else str(BOOTSTRAP_PATH)
+    )
     env["PATH"] = os.pathsep.join((str(prefix / "bin"), str(Path(sys.executable).parent), env.get("PATH", "")))
     return env
 
