@@ -102,6 +102,9 @@ def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_
     gen_gitlab_config_mod.gen_build_base_venvs()
 
     config = (tmp_path / "tests-gen.yml").read_text()
+    assert "build_base_venvs:\n  # Keep the base producer independent" in config
+    assert "  extends: .testrunner" in config
+    assert "  extends: .cached_testrunner" not in config
     assert 'echo "NIGHTLY_BUILD: false"' in config
     assert 'echo "UNPIN_DEPENDENCIES: false"' in config
     assert 'if [[ "false" == "true" ]]' in config

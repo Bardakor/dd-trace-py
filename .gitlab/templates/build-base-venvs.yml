@@ -1,5 +1,8 @@
 build_base_venvs:
-  extends: .cached_testrunner
+  # Keep the base producer independent from the optional extension cache. The
+  # base build is the cache owner; restoring another native tree here duplicates
+  # work and previously hid whether setup or the editable build had failed.
+  extends: .testrunner
   stage: setup
   needs: []
   parallel:

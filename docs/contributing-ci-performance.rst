@@ -463,6 +463,12 @@ editable build frontend at once. The next iteration keeps uv venv creation and a
 restores pip only for the editable ddtrace build, isolating the remaining behavior change while retaining direct uv
 execution.
 
+The pip-only iteration still failed in the producer before smoke could start. Exact job traces were unavailable because
+the internal DDCI log wrapper could not reach GitLab without AppGate. The next diagnostic removes
+``.cached_testrunner`` from the base producer. This keeps the producer independent from ``ext_cache.py`` and tests the
+uv base build directly. It also removes a duplicated native-artifact layer: the base environment is itself the native
+build artifact consumed by every test job.
+
 Next sequence
 -------------
 
