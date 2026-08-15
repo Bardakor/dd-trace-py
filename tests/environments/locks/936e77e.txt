@@ -22,10 +22,12 @@ plaster==1.1.2
 plaster-pastedeploy==1.0.1
 pluggy==1.6.0
 pserve-test-app @ file:///home/bits/project/tests/contrib/pyramid/pserve_app
+py==1.11.0
 pygments==2.19.2
 pyramid==2.0.2
 pytest==8.4.2
 pytest-cov==7.0.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 pytest-randomly==4.0.1
 requests==2.32.5

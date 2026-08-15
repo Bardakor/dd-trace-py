@@ -15,8 +15,10 @@ opentracing==2.4.0
 packaging==24.2
 pluggy==1.5.0
 protobuf==5.29.1
+py==1.11.0
 pytest==8.3.4
 pytest-cov==6.0.0
+pytest-forked==1.6.0
 pytest-mock==3.14.0
 pytest-randomly==3.16.0
 sortedcontainers==2.4.0

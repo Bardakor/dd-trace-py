@@ -36,6 +36,7 @@ opentelemetry-semantic-conventions==0.61b0
 opentracing==2.4.0
 packaging==26.0
 pluggy==1.6.0
+py==1.11.0
 pycparser==3.0
 pydantic==2.12.5
 pydantic-core==2.41.5
@@ -44,6 +45,7 @@ pygments==2.19.2
 pyjwt[crypto]==2.11.0
 pytest==9.0.2
 pytest-cov==7.0.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2

@@ -143,6 +143,7 @@ gdb
 genai
 generativeai
 gevent
+GiB
 Gitlab
 google-adk
 GPU
@@ -204,6 +205,7 @@ logbook
 loguru
 lookups
 loopback
+localhost
 macOS
 mako
 mariadb
@@ -265,6 +267,7 @@ preload
 prepend
 prepended
 profiler
+pruneable
 programmatically
 protobuf
 proxying
@@ -393,6 +396,7 @@ workflow
 Wrapt
 wsgi
 xfail
+xdist
 yaaredis
 openai-agents
 validators

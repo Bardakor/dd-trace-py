@@ -43,19 +43,23 @@ The target runner should make the isolation class explicit:
    * - Reusable
      - Multiple tests may share a worker process.
      - Pure tests or tests with a proven reset contract. These can use normal pytest workers and work stealing.
+   * - Forked process
+     - One test per forked child process, enforced by a runtime PID guard.
+     - The default for pytest. It prevents two test cases from sharing a process while retaining parallel collection.
    * - Fresh process
      - One test per clean, exec-created Python process.
-     - Import-order, environment, fork, global tracer configuration, and any span-producing test.
+     - Tests whose correctness depends on collection-time imports, environment, or state that cannot safely be inherited.
    * - Agent isolated
-     - Fresh process plus a unique test-agent session.
+     - One test process plus a unique test-agent session.
      - Tests that send spans to the agent but do not compare snapshots.
    * - Snapshot isolated
-     - Fresh process plus test-agent start, flush, compare, and finalize.
+     - One test process plus test-agent start, flush, compare, and finalize.
      - Snapshot tests. Parallel lanes need independent session identifiers and a contamination test.
 
 ``xdist`` workers are reusable processes. Increasing ``-n`` is safe for the reusable class, but it does not provide
-one-process-per-test isolation. A forked child also needs care because it can inherit active context and open
-connections. The safe default for isolated tests is a clean controller that starts each test with ``exec``.
+one-process-per-test isolation by itself. The uv runner adds ``pytest-forked`` so each test body runs in a child and
+loads a guard that fails if it remains in the collection worker. Forked children inherit the worker's collection-time
+state, so tests that create unsafe state during collection must use the ``fresh-process`` launcher instead.
 
 Ranked bottleneck register
 --------------------------
@@ -73,11 +77,13 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Current evidence
      - First action
    * - 1
-     - Span and snapshot isolation is implicit
+     - Span and snapshot isolation coverage is incomplete
      - Critical
-     - Normal pytest sessions and ``xdist`` workers can run multiple tests in one process. Snapshot tokens isolate test
-       agent sessions, but the snapshot helper records occasional unmatched traces between sessions.
-     - Add explicit isolation metadata and enforce one clean process per span-producing or snapshot test.
+     - The uv runner now defaults every pytest suite to one forked child per test and fails if a test stays in the
+       reusable collection worker. The full internal suite passed under this policy; its reusable-worker control failed
+       a forked Symbol Database upload. Snapshot contamination stress coverage is still missing.
+     - Validate the default across real CI, add a contamination sentinel, and promote collection-unsafe suites to
+       clean ``exec`` isolation.
    * - 2
      - Duration-blind partitioning and ordering
      - High
@@ -127,10 +133,11 @@ rank does not imply that an optimization may relax the isolation rules above.
      - Restrict CI retries to runner and service failures; retry an isolated test only when its failure class permits.
    * - 9
      - Broad, concurrently written caches
-     - Medium, unmeasured
-     - Generated jobs cache all of ``.cache`` under a suite key. Parallel shards can restore and update the same
-       broad cache, mixing pip, uv, dependency prefixes, and compiler data.
-     - Record cache transfer bytes and time, then separate immutable consumer caches from a single producer.
+     - Medium
+     - Generated jobs cache all of ``.cache`` under a suite key. A local gevent build restored c-ares configure state
+       created with different compiler flags and failed until ``uv cache prune --ci`` removed 1.0 GiB and 37,000 files.
+     - Record cache transfer bytes and time, separate immutable consumer caches from compiler outputs, and include
+       native build inputs in every reusable cache key.
    * - 10
      - Test configuration has multiple sources and slow generated copies
      - Medium
@@ -154,23 +161,27 @@ The same helper currently treats some ``received unmatched traces`` responses as
 agent can occasionally mix traces between sessions. That should be a measured reliability defect, not a permanent
 reason to combine tests.
 
-Proposed experiment:
+Implemented canary and remaining experiment:
 
-#. Add an ``isolation`` field to the suite and test metadata. ``snapshot`` implies ``snapshot-isolated`` and any test
-   that creates spans implies at least ``fresh-process``.
+#. The core environment model now declares ``forked-process`` as the default. Local and generated CI commands export
+   that policy, add ``--forked``, and load a PID guard that fails if the test body remains in an xdist worker.
+#. Keep ``fresh-process`` as an explicit suite override. Its controller collects once and starts each node with a clean
+   pytest ``exec`` while reusing only the container, resolved dependencies, and test-agent service.
 #. Add a contamination sentinel: run two known span tests concurrently and fail if either process observes the
    other's trace or active context.
-#. Collect test node IDs once, then start isolated tests in clean child processes with bounded concurrency. Reuse the
-   container, base Python, uv dependency prefix, and test-agent service, not the child interpreter.
 #. Give every parallel agent lane an independent session namespace. If the test agent cannot guarantee this, use one
    agent sidecar per lane or serialize the snapshot handshake while keeping non-agent work parallel.
-#. Reject configurations that send snapshot tests through normal reusable ``xdist`` workers.
+#. Reject configurations that disable process isolation for span-producing or snapshot tests.
 
 Success gates:
 
 * Zero mixed-context or cross-session traces in repeated stress runs.
 * Zero ignored unmatched-trace responses before removing the existing expected-failure behavior.
 * No regression in snapshot content, process cleanup, or agent connectivity.
+* A maintained long-term isolation implementation. `pytest-forked 1.6.0
+  <https://pypi.org/project/pytest-forked/1.6.0/>`_ is minimally maintained, depends on the legacy ``py`` package, and
+  does not support Windows; dd-trace-py's container CI is Linux, but this remains a migration risk rather than a
+  dependency to accept silently.
 
 2. Balance by duration, not hash count
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -303,6 +314,12 @@ target model is:
 * a separately keyed native compiler cache;
 * no test-job upload when the job cannot add a reusable artifact.
 
+A local uv prefix rebuild exposed why the separation is a correctness requirement. gevent's bundled c-ares configure
+state had been cached with different ``CFLAGS`` and caused a deterministic native build failure. Running
+``uv cache prune --ci`` removed about 1.0 GiB across 37,000 files; the same 802-test environment then built and passed
+in about 28 seconds. The next CI instrumentation should report native cache keys and pruneable bytes, not only a
+binary hit or miss.
+
 9. De-duplicate test configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -418,7 +435,7 @@ inside the named node and has no anonymous grouping layers.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Local routing, direct execution, and CI generation now read a flat JSON inventory. The inventory
-factors seven shared dependencies and 12 base variables into ``core.json``, while retaining all 1,936 instances and
+factors eight shared dependencies and 12 base variables into ``core.json``, while retaining all 1,936 instances and
 1,886 stable IDs. The final inventory is sharded by 193 preserved named nodes; every file remains below the CI size
 limit, and validation covers selection order, definition references, IDs, and lock completeness.
 
@@ -572,12 +589,34 @@ environment passes 51 tests and skips five. The three internal CI shard failures
 the complete first failing Python 3.11 environment passes 823 tests locally, with six skips and two expected failures.
 This is not evidence that those CI failures are fixed, so they remain in the next focused checkpoint.
 
+Commit ``f3b3c83a63`` passed all 41 focused test jobs: 17 AppSec FastAPI, two AppSec Flask test-agent, 14 CI Visibility
+pytest snapshot, two Selenium, and six internal jobs. All six base producers, smoke checks, and prechecks also passed.
+The only failure was documentation spelling for the literal ``localhost`` endpoint; the source dictionary now contains
+that word. This run validates the direct-uv runtime and service routing for the representative subprocess-heavy slice,
+but predates per-test process isolation.
+
+2026-08-15, process-isolation experiment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The clean ``exec`` controller passed 835 internal tests with four parallel lanes, but took 816.11 seconds. A comparable
+reusable-worker run took 27.52 seconds of pytest time and 45.67 seconds end to end, while failing the Symbol Database
+fork-upload test with a test-agent 404. Clean ``exec`` was about 23 times slower, so it remains the strict fallback
+rather than the default.
+
+The fork-per-test canary ran the same internal suite with ten xdist workers. It passed 825 tests, skipped ten, and had
+three expected failures in 22.96 seconds of pytest time and 41.08 seconds end to end. That was 16.6 percent faster in
+pytest time and about 10 percent faster end to end than the reusable-worker control, while also avoiding its failure.
+After adding the dependency to every checked-in uv lock and enabling the runtime PID guard, the current 837-test
+internal suite passed 827 tests, skipped ten, and had two expected failures in 29.99 seconds of pytest time and 48.82
+seconds end to end. The difference between the two forked runs is normal suite and host variation, not evidence of a
+regression. Real focused CI is the next performance gate.
+
 Next sequence
 -------------
 
-#. Add phase timing and isolation metadata without changing execution.
+#. Validate fork-per-test isolation in the 41-job representative CI slice, then expand to every generated suite.
+#. Add a cross-process contamination stress test and classify any collection-unsafe suite as ``fresh-process``.
 #. Replace count-based partitioning with duration-aware packing for tracer, then compare wall time and runner minutes.
-#. Route snapshot and span-producing tests through clean-process lanes with a contamination stress test.
 #. Split non-agent tests from snapshot jobs and replace the Python 3.9 wait environment.
-#. Consolidate subprocess launchers and narrow retry conditions.
-#. Split cache ownership and make the suite model the single source for local and CI runs.
+#. Add phase timing, split cache ownership, and consolidate subprocess launchers.
+#. Make the suite model the single source for isolation, services, dependencies, sharding, and change routing.

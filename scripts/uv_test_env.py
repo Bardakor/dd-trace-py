@@ -104,6 +104,18 @@ def format_command(command: str, command_args: list[str]) -> str:
     return command.format(cmdargs=quoted_args).strip()
 
 
+def isolate_pytest_command(command: str) -> str:
+    isolation = os.getenv("DD_TEST_ISOLATION")
+    if isolation not in {"forked-process", "fresh-process"}:
+        return command
+    args = shlex.split(command)
+    if not args or Path(args[0]).name != "pytest":
+        return command
+    if isolation == "forked-process":
+        return shlex.join([*args, "-p", "scripts.test_process_isolation", "--forked"])
+    return shlex.join([sys.executable, str(ROOT / "scripts" / "run_isolated_tests.py"), "--", *args[1:]])
+
+
 def run_environment(metadata_path: Path, command_args: list[str]) -> int:
     metadata = json.loads(metadata_path.read_text())
     running_python = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -112,7 +124,7 @@ def run_environment(metadata_path: Path, command_args: list[str]) -> int:
 
     prefix = prepare_dependencies(metadata)
     for instance in metadata["instances"]:
-        command = format_command(instance["command"], command_args)
+        command = isolate_pytest_command(format_command(instance["command"], command_args))
         result = subprocess.run(
             command,
             cwd=ROOT,

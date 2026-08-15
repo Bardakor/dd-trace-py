@@ -30,11 +30,13 @@ packaging==25.0
 peewee==3.18.3
 pluggy==1.6.0
 pony==0.7.19
+py==1.11.0
 pycparser==2.23
 pygments==2.19.2
 pypika-tortoise==0.6.2
 pytest==8.4.2
 pytest-cov==7.0.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 pytz==2025.2
 requests==2.32.5

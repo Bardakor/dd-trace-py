@@ -46,6 +46,7 @@ packaging==25.0
 pathable==0.4.4
 pluggy==1.6.0
 propcache==0.3.2
+py==1.11.0
 py-partiql-parser==0.5.0
 pyasn1==0.6.1
 pycparser==2.23
@@ -55,6 +56,7 @@ pygments==2.19.2
 pyparsing==3.2.4
 pytest==8.4.2
 pytest-cov==7.0.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 pytest-randomly==4.0.1
 python-dateutil==2.9.0.post0

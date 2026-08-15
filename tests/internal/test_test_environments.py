@@ -13,10 +13,11 @@ def test_inventory_is_valid_and_all_locks_exist():
     assert result["named_nodes"] > 0
 
 
-def test_isolation_policy_keeps_span_and_snapshot_tests_in_fresh_processes():
+def test_isolation_policy_keeps_span_and_snapshot_tests_in_separate_processes():
     core, _ = test_environments._load_data()
 
     assert core["isolation_policy"] == test_environments.ISOLATION_POLICY
+    assert test_environments.default_isolation() == "forked-process"
 
 
 def test_inventory_preserves_named_selections():
@@ -58,3 +59,28 @@ def test_unknown_core_override_is_rejected():
             {"dependencies": [{"name": "pytest", "requirement": "pytest"}]},
             {"add": [], "override": {"unknown-package": "unknown-package<2"}},
         )
+
+
+def test_validation_rejects_lock_missing_core_dependency(monkeypatch, tmp_path):
+    environment = test_environments.Environment(
+        position=0,
+        id="abc1234",
+        legacy_long_id="abc1234-long",
+        name="suite",
+        python="3.12",
+        command="pytest",
+        requirements=("pytest",),
+        variables={},
+        identity="suite",
+    )
+    (tmp_path / "abc1234.txt").write_text("attrs==26.1.0\n")
+    monkeypatch.setattr(test_environments, "LOCK_ROOT", tmp_path)
+    monkeypatch.setattr(
+        test_environments,
+        "_load_data",
+        lambda: ({"dependencies": [{"name": "pytest"}], "supported_python": ["3.12"]}, {}),
+    )
+    monkeypatch.setattr(test_environments, "environments", lambda environ: [environment])
+
+    with pytest.raises(ValueError, match="abc1234 is missing core dependencies: pytest"):
+        test_environments.validate()

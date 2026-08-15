@@ -16,8 +16,10 @@ mock==5.2.0
 opentracing==2.4.0
 packaging==24.2
 pluggy==1.5.0
+py==1.11.0
 pytest==8.3.5
 pytest-cov==6.0.0
+pytest-forked==1.6.0
 pytest-mock==3.14.0
 requests==2.32.3
 sortedcontainers==2.4.0

@@ -571,6 +571,9 @@ class TestRunner:
                     value = self._localize_service_value(value, suite_services)
                     env[key] = value
                     print(f"🔧 Setting {key}={value}")
+            if isolation := suite_config.get("isolation", test_environments.default_isolation()):
+                env["DD_TEST_ISOLATION"] = str(isolation)
+                print(f"🔒 Using {isolation} test isolation")
 
             # Override with testagent URL if needed
             if uses_testagent:

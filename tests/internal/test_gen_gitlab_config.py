@@ -79,6 +79,12 @@ def test_jobspec_uses_uv_test_template(gen_gitlab_config_mod):
     assert "  PIP_CACHE_KEY: pip-key" in config
 
 
+def test_jobspec_exports_explicit_isolation_policy(gen_gitlab_config_mod):
+    config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core", isolation="forked-process"))
+
+    assert "  DD_TEST_ISOLATION: forked-process" in config
+
+
 def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
     spec = gen_gitlab_config_mod.JobSpec(
         name="suite",
@@ -189,4 +195,6 @@ def test_explicit_suite_generation_preserves_configured_packing(gen_gitlab_confi
     gen_gitlab_config_mod._gen_tests({"tracer": {"venvs_per_job": 2}}, ["tracer"], scale_to_target=False)
 
     scale.assert_not_called()
-    assert "  parallel: 7" in output.read_text()
+    config = output.read_text()
+    assert "  parallel: 7" in config
+    assert "  DD_TEST_ISOLATION: forked-process" in config

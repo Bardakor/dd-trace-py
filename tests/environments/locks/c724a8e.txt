@@ -43,11 +43,13 @@ pandas==2.3.3
 pillow==12.3.0
 pluggy==1.6.0
 protobuf==4.25.9
+py==1.11.0
 pyarrow==15.0.2
 pygments==2.20.0
 pyparsing==3.3.2
 pytest==9.1.1
 pytest-cov==7.1.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 pytest-randomly==4.1.0
 python-dateutil==2.9.0.post0

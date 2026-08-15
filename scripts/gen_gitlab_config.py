@@ -71,6 +71,7 @@ class JobSpec:
     gpu: bool = False
     type: str = "test"  # ignored
     skip_pip_cache: bool = False
+    isolation: t.Optional[str] = None
 
     python_versions: t.Optional[set[str]] = None
     pip_cache_key: str = hashlib.sha256().hexdigest()
@@ -134,10 +135,11 @@ class JobSpec:
         if wait_for:
             lines.append(f"    - ./scripts/run-uv-test-env wait -- {' '.join(wait_for)}")
 
-        env = self.env
-        if not env or "SUITE_NAME" not in env:
-            env = env or {}
+        env = dict(self.env or {})
+        if "SUITE_NAME" not in env:
             env["SUITE_NAME"] = self.pattern or self.name
+        if self.isolation:
+            env["DD_TEST_ISOLATION"] = self.isolation
 
         env["PIP_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/pip"
         env["UV_CACHE_DIR"] = "${CI_PROJECT_DIR}/.cache/uv"
@@ -488,6 +490,8 @@ def _filter_benchmarks_slos_file(classnames: list) -> None:
 def _gen_tests(suites: dict, required_suites: list[str], *, scale_to_target: bool = True) -> None:
     global _global_python_versions
 
+    import test_environments
+
     suites = {k: v for k, v in suites.items() if v.get("type", "test") == "test"}
     required_suites = [a for a in required_suites if a in list(suites.keys())]
 
@@ -575,6 +579,7 @@ def _gen_tests(suites: dict, required_suites: list[str], *, scale_to_target: boo
             suite_config = suites[suite].copy()
             stage = suite_config.pop("_stage", "core")
             clean_name = suite_config.pop("_clean_name", suite)
+            suite_config.setdefault("isolation", test_environments.default_isolation())
 
             venv_info = suite_venv_info.get(suite)
             py_versions = venv_info.python_versions if venv_info is not None else None

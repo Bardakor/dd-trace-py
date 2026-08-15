@@ -23,9 +23,11 @@ msgpack==1.1.2
 opentracing==2.4.0
 packaging==25.0
 pluggy==1.6.0
+py==1.11.0
 pygments==2.19.2
 pytest==8.4.2
 pytest-cov==2.12.0
+pytest-forked==1.6.0
 pytest-mock==2.0.0
 pytest-randomly==4.0.1
 pytest-xdist==3.8.0

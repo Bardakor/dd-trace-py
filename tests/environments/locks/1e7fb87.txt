@@ -47,12 +47,14 @@ packaging==26.0
 pillow==12.1.1
 pluggy==1.6.0
 propcache==0.4.1
+py==1.11.0
 pydantic==2.12.5
 pydantic-core==2.41.5
 pygments==2.19.2
 pytest==9.0.2
 pytest-asyncio==1.3.0
 pytest-cov==7.0.0
+pytest-forked==1.6.0
 pytest-mock==3.15.1
 pyyaml==6.0.3
 regex==2026.2.28

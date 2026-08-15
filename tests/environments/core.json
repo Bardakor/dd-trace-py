@@ -23,6 +23,10 @@
       "requirement": "pytest-mock"
     },
     {
+      "name": "pytest-forked",
+      "requirement": "pytest-forked==1.6.0"
+    },
+    {
       "name": "coverage",
       "requirement": "coverage"
     },
@@ -54,9 +58,10 @@
     "_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER": "1"
   },
   "isolation_policy": {
-    "environment_command": "fresh-process",
-    "snapshot_test": "fresh-process-and-test-agent-session-required",
-    "span_test": "fresh-process-required"
+    "default": "forked-process",
+    "fresh_process": "one-test-per-exec-created-process",
+    "snapshot_test": "forked-process-and-test-agent-session-required",
+    "span_test": "forked-process-required"
   },
   "schema_version": 1,
   "supported_python": [

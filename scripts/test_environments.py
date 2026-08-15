@@ -21,9 +21,10 @@ LOCK_ROOT = ROOT / "tests" / "environments" / "locks"
 CORE_SCHEMA_VERSION = 1
 INVENTORY_SCHEMA_VERSION = 2
 ISOLATION_POLICY = {
-    "environment_command": "fresh-process",
-    "snapshot_test": "fresh-process-and-test-agent-session-required",
-    "span_test": "fresh-process-required",
+    "default": "forked-process",
+    "fresh_process": "one-test-per-exec-created-process",
+    "snapshot_test": "forked-process-and-test-agent-session-required",
+    "span_test": "forked-process-required",
 }
 
 
@@ -130,6 +131,24 @@ def environments(environ: Optional[Mapping[str, str]] = None) -> list[Environmen
     return resolved
 
 
+def default_isolation() -> str:
+    """Return the default process-isolation policy for test commands."""
+    core, _ = _load_data()
+    return str(core["isolation_policy"]["default"])
+
+
+def _normalized_package_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _locked_package_names(path: Path) -> set[str]:
+    names = set()
+    for line in path.read_text().splitlines():
+        if match := re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)", line):
+            names.add(_normalized_package_name(match.group(1)))
+    return names
+
+
 def select(pattern: str, candidates: Optional[Iterable[Environment]] = None) -> list[Environment]:
     """Select one ordered instance per stable ID for a name pattern."""
     compiled = re.compile(pattern)
@@ -177,6 +196,15 @@ def validate() -> dict[str, int]:
     )
     if missing_locks:
         raise ValueError(f"Missing environment locks: {', '.join(missing_locks)}")
+    core_dependencies = {_normalized_package_name(dependency["name"]) for dependency in core["dependencies"]}
+    incomplete_locks = {
+        environment_id: sorted(core_dependencies - _locked_package_names(LOCK_ROOT / f"{environment_id}.txt"))
+        for environment_id in by_id
+    }
+    incomplete_locks = {environment_id: missing for environment_id, missing in incomplete_locks.items() if missing}
+    if incomplete_locks:
+        environment_id, missing = next(iter(sorted(incomplete_locks.items())))
+        raise ValueError(f"Environment lock {environment_id} is missing core dependencies: {', '.join(missing)}")
     for environment_id, variants in by_id.items():
         if len({(variant.name, variant.python, variant.requirements) for variant in variants}) != 1:
             raise ValueError(f"Environment variants for {environment_id} disagree on name, Python, or dependencies")

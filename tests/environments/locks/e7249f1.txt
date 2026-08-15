@@ -106,6 +106,7 @@ propcache==0.3.2
 protobuf==6.31.1
 ptyprocess==0.7.0
 pure-eval==0.2.3
+py==1.11.0
 pyasn1==0.6.1
 pyasn1-modules==0.4.2
 pybase64==1.4.2
@@ -120,6 +121,7 @@ pyproject-hooks==1.2.0
 pytest==8.4.1
 pytest-asyncio==1.1.0
 pytest-cov==6.2.1
+pytest-forked==1.6.0
 pytest-mock==3.14.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1

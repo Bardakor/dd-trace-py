@@ -116,7 +116,22 @@ def test_format_command_shell_quotes_forwarded_arguments(uv_test_env_mod):
     assert command == "pytest -k 'one or two' 'it'\"'\"'s' tests/tracer"
 
 
+def test_isolate_pytest_command_applies_explicit_policy_to_pytest(uv_test_env_mod, monkeypatch, tmp_path):
+    monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
+    monkeypatch.setenv("DD_TEST_ISOLATION", "fresh-process")
+
+    command = uv_test_env_mod.isolate_pytest_command("pytest -q tests/internal")
+
+    assert command == (f"{sys.executable} {tmp_path / 'scripts' / 'run_isolated_tests.py'} -- -q tests/internal")
+    monkeypatch.setenv("DD_TEST_ISOLATION", "forked-process")
+    assert uv_test_env_mod.isolate_pytest_command("pytest -q tests/internal") == (
+        "pytest -q tests/internal -p scripts.test_process_isolation --forked"
+    )
+    assert uv_test_env_mod.isolate_pytest_command("python tests/smoke_test.py") == "python tests/smoke_test.py"
+
+
 def test_run_environment_runs_all_matching_instances(uv_test_env_mod, monkeypatch, tmp_path):
+    monkeypatch.delenv("DD_TEST_ISOLATION", raising=False)
     metadata_path = tmp_path / "metadata.json"
     metadata_path.write_text(
         json.dumps(

@@ -39,12 +39,14 @@ orjson==3.11.3
 packaging==24.2
 pluggy==1.6.0
 propcache==0.3.2
+py==1.11.0
 pydantic==2.11.7
 pydantic-core==2.33.2
 pygments==2.19.2
 pytest==8.4.1
 pytest-asyncio==0.23.7
 pytest-cov==6.2.1
+pytest-forked==1.6.0
 pytest-mock==3.14.1
 pyyaml==6.0.2
 regex==2025.8.29
