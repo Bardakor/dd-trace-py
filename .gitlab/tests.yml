@@ -116,7 +116,12 @@ hatch/tracer-py312-canary:
     - unset DD_ENV
     - unset DD_TAGS
     - unset DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED
+    - |
+      riot_base_venv="$(find .riot -maxdepth 1 -type d -name 'venv_py312*' ! -name 'venv_*_*' -print -quit)"
+      test -n "${riot_base_venv}"
+      mkdir -p .hatch
+      ln -s "../${riot_base_venv}" .hatch/tracer-py312
   script:
-    - uvx --from "hatch==${HATCH_VERSION}" hatch run tracer.py3.12:test -- --ddtrace
+    - uvx --from "hatch==${HATCH_VERSION}" hatch run tracer-ci:test -- --ddtrace
 
 # Required jobs will appear here

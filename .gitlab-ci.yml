@@ -105,7 +105,13 @@ tests-gen:
         # Use dd-octo-sts to get GitHub token
         export GH_TOKEN=$(dd-octo-sts token --scope DataDog/dd-trace-py --policy gitlab.github-access.read)
       fi
-    - scripts/gen_gitlab_config.py --verbose
+    - |
+      # Keep this draft migration branch focused on tracer jobs while we compare CI timings.
+      if [[ "${CI_COMMIT_REF_NAME}" == "codex/migrate-tracer-hatch" ]]; then
+        scripts/gen_gitlab_config.py --verbose --suite tracer
+      else
+        scripts/gen_gitlab_config.py --verbose
+      fi
   needs: []
   artifacts:
     paths:

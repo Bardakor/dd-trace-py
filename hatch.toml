@@ -49,6 +49,12 @@ collect = "pytest --collect-only -q {args} --ignore=tests/tracer/test_uwsgi_shut
 [[envs.tracer.matrix]]
 python = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
+[envs.tracer-ci]
+template = "tracer"
+python = "3.12"
+path = ".hatch/tracer-py312"
+skip-install = true
+
 [envs.tracer-128-bit-traceid-disabled]
 template = "tracer"
 python = "3.14"
