@@ -79,7 +79,7 @@ class JobSpec:
 
     def __str__(self) -> str:
         lines = []
-        base = ".test_base_hatch"
+        base = ".test_base_uv"
         if self.gpu:
             base += "_gpu"
         if self.snapshot:
@@ -132,7 +132,7 @@ class JobSpec:
         lines.append("    - pip cache info")
         lines.append(f'    - export NIGHTLY_BUILD="{_nightly_build}"')
         if wait_for:
-            lines.append(f"    - ./scripts/run-hatch-test-env wait -- {' '.join(wait_for)}")
+            lines.append(f"    - ./scripts/run-uv-test-env wait -- {' '.join(wait_for)}")
 
         env = self.env
         if not env or "SUITE_NAME" not in env:

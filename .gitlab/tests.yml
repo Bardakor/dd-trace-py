@@ -13,7 +13,7 @@ include:
 
 
 # Do not define a `needs:` in order to depend on the whole `precheck` stage
-.test_base_hatch:
+.test_base_uv:
   extends: .testrunner
   stage: riot
   needs: [ build_base_venvs, prechecks ]
@@ -37,9 +37,9 @@ include:
       fi
       for hash in "${hashes[@]}"
       do
-        echo "Running Hatch environment: ${hash}"
+        echo "Running uv environment: ${hash}"
         export _CI_DD_TAGS="test.configuration.riot_hash:${hash}"
-        ./scripts/run-hatch-test-env "${hash}" -- --ddtrace
+        ./scripts/run-uv-test-env "${hash}" -- --ddtrace
       done
       ./scripts/check-diff ".riot/requirements/" \
         "Changes detected after running riot. Consider deleting changed files, running scripts/compile-and-prune-test-requirements and committing the result."
@@ -47,20 +47,20 @@ include:
         "Registry YAML file (scripts/integration_registry/registry.yaml) was modified. Please run: scripts/integration_registry/update_and_format_registry.py and commit the changes."
 
 
-.test_base_hatch_snapshot:
-  extends: .test_base_hatch
+.test_base_uv_snapshot:
+  extends: .test_base_uv
   services:
-    - !reference [.test_base_hatch, services]
+    - !reference [.test_base_uv, services]
     - !reference [.services, testagent]
   before_script:
-    - !reference [.test_base_hatch, before_script]
+    - !reference [.test_base_uv, before_script]
     # DEV: All job variables get shared with services, setting `DD_TRACE_AGENT_URL` on the testagent will tell it to forward all requests to the
     # agent at that host. Therefore setting this as a variable will cause recursive requests to the testagent
     - export DD_TRACE_AGENT_URL="http://testagent:9126"
     - ln -s "${CI_PROJECT_DIR}" "/home/bits/project"
 
-.test_base_hatch_gpu:
-  extends: .test_base_hatch
+.test_base_uv_gpu:
+  extends: .test_base_uv
   image: !reference [.testrunner_gpu, image]
   tags: !reference [.testrunner_gpu, tags]
   timeout: 40m
@@ -72,15 +72,15 @@ include:
     KUBERNETES_CPU_LIMIT: "2"
   before_script:
     - !reference [.testrunner_gpu, before_script]
-    - !reference [.test_base_hatch, before_script]
+    - !reference [.test_base_uv, before_script]
 
-.test_base_hatch_gpu_snapshot:
-  extends: .test_base_hatch_gpu
+.test_base_uv_gpu_snapshot:
+  extends: .test_base_uv_gpu
   services:
-    - !reference [.test_base_hatch_gpu, services]
+    - !reference [.test_base_uv_gpu, services]
     - !reference [.services, testagent]
   before_script:
-    - !reference [.test_base_hatch_gpu, before_script]
+    - !reference [.test_base_uv_gpu, before_script]
     - export DD_TRACE_AGENT_URL="http://testagent:9126"
     - ln -s "${CI_PROJECT_DIR}" "/home/bits/project"
 

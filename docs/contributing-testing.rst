@@ -62,15 +62,16 @@ You can access it by running
 
     $ scripts/ddtest
 
-Test commands run through Hatch, and uv installs each environment's pinned dependencies. The
-resolved environment definitions and locks still come from Riot during the migration.
+Test commands run through uv, which layers each environment's pinned dependencies over a shared,
+editable ddtrace build. The resolved environment definitions and locks still come from Riot during
+the migration.
 
 You can run a known environment hash or lint checks in the test runner container with commands
 like these:
 
 .. code-block:: bash
 
-    $ scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- -k test_name
+    $ scripts/ddtest scripts/run-uv-test-env <environment_hash> -- -k test_name
     $ scripts/ddtest scripts/lint style
 
 
@@ -90,21 +91,21 @@ The ``scripts/run-tests`` script handles this automatically:
     # Run specific test functions
     $ scripts/run-tests tests/contrib/flask/ -- -k "test_request or test_response"
 
-**Manual way: Run a Hatch environment**
+**Manual way: Run a uv environment**
 
 If you prefer manual control:
 
 1. Use ``scripts/run-tests --list <test_path>`` to find a matching environment hash.
 2. Find the suite in ``tests/suitespec.yml`` and start any listed services with
    ``docker compose up -d service1 service2``.
-3. Run ``scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- <test arguments>``.
+3. Run ``scripts/ddtest scripts/run-uv-test-env <environment_hash> -- <test arguments>``.
 
-Anatomy of a Hatch Test Command
--------------------------------
+Anatomy of a uv Test Command
+----------------------------
 
 .. code-block:: bash
 
-    $ scripts/ddtest scripts/run-hatch-test-env <environment_hash> -- -s -vv -k 'test_name1 or test_name2'
+    $ scripts/ddtest scripts/run-uv-test-env <environment_hash> -- -s -vv -k 'test_name1 or test_name2'
 
 * ``<environment_hash>`` selects one pinned Python and dependency combination.
 * ``--`` passes everything after it to the environment's test command.
@@ -123,8 +124,8 @@ To fix this:
     # outside of the testrunner shell
     $ docker compose up -d testagent
 
-    # run the selected Hatch environment against the service
-    $ DD_TRACE_AGENT_URL=http://testagent:9126 scripts/ddtest scripts/run-hatch-test-env <environment_hash>
+    # run the selected uv environment against the service
+    $ DD_TRACE_AGENT_URL=http://testagent:9126 scripts/ddtest scripts/run-uv-test-env <environment_hash>
 
 Why are my Docker tests failing with permission errors on Linux?
 -----------------------------------------------------------------
@@ -157,8 +158,8 @@ After setting this up, run your tests normally:
 
 The ``docker-compose.override.yml`` file is git-ignored and won't be committed, so each developer can have their own local configuration.
 
-Build issues when running tests with Hatch
-------------------------------------------
+Build issues when running tests with uv
+---------------------------------------
 
 If you encounter build failures, CMake errors, or stale native extension issues when running tests:
 
@@ -166,7 +167,7 @@ If you encounter build failures, CMake errors, or stale native extension issues 
 - **Using scripts/ddtest:** The project is mounted from the host, so run ``scripts/clean`` on the host first.
   The container sees the cleaned project on the next run.
 
-Then run the selected environment again. ``scripts/run-tests`` rebuilds the shared ddtrace base before Hatch starts the test command:
+Then run the selected environment again. ``scripts/run-tests`` rebuilds the shared ddtrace base before uv starts the test command:
 
 .. code-block:: bash
 
@@ -176,7 +177,7 @@ Why is my CI run failing with a message about requirements files?
 -----------------------------------------------------------------
 
 ``.riot/requirements`` contains requirements files generated with ``pip-compile`` for every environment specified
-by ``riotfile.py``. Hatch and uv consume these pinned files, and they do not get rebuilt automatically when the
+by ``riotfile.py``. uv consumes these pinned files, and they do not get rebuilt automatically when the
 riotfile changes. Thus, if you make changes to the riotfile, you need to rebuild them.
 
 .. code-block:: bash
@@ -223,8 +224,8 @@ The library includes automated SLO checks that monitor performance thresholds fo
 How do I add a new test suite?
 ------------------------------
 
-Hatch runs the test suites and uv installs their dependencies. During the configuration migration, new matrices
-are still declared as ``Venv`` instances in ``riotfile.py`` so the existing lock compiler remains authoritative.
+uv runs the test suites and installs their dependencies. During the configuration migration, new matrices are
+still declared as ``Venv`` instances in ``riotfile.py`` so the existing lock compiler remains authoritative.
 It can look like this:
 
 .. code-block:: python

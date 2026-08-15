@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # AIDEV-NOTE: Riot remains the temporary source of resolved environment metadata.
-# The test command itself always runs through Hatch with dependencies installed by uv.
+# uv owns dependency installation and command execution during the migration.
 import riotfile  # noqa: E402
 
 
@@ -37,11 +37,9 @@ def find_instances(identifier: str):
 
 def write_metadata(identifier: str, instances) -> Path:
     first = instances[0]
-    python = first.py._hint
     metadata = {
         "hash": first.short_hash,
-        "python": python,
-        "requirements": f".riot/requirements/{first.short_hash}.txt",
+        "python": first.py._hint,
         "instances": [
             {
                 "command": instance.command,
@@ -57,7 +55,7 @@ def write_metadata(identifier: str, instances) -> Path:
             for instance in instances
         ],
     }
-    metadata_dir = ROOT / ".hatch" / "metadata"
+    metadata_dir = ROOT / ".cache" / "uv-test-metadata"
     metadata_dir.mkdir(parents=True, exist_ok=True)
     metadata_path = metadata_dir / f"{identifier}.json"
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True))
@@ -66,7 +64,7 @@ def write_metadata(identifier: str, instances) -> Path:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("usage: scripts/run-hatch-test-env HASH [-- TEST_ARGS...]", file=sys.stderr)
+        print("usage: scripts/run-uv-test-env HASH [-- TEST_ARGS...]", file=sys.stderr)
         return 2
 
     identifier = sys.argv[1]
@@ -76,8 +74,9 @@ def main() -> int:
         return 2
 
     python_hints = {instance.py._hint for instance in instances}
-    if len(python_hints) != 1:
-        print(f"Environment {identifier} resolves to multiple Python versions: {sorted(python_hints)}", file=sys.stderr)
+    hashes = {instance.short_hash for instance in instances}
+    if len(python_hints) != 1 or len(hashes) != 1:
+        print(f"Environment {identifier} is ambiguous; use its exact hash", file=sys.stderr)
         return 2
 
     first = instances[0]
@@ -93,23 +92,27 @@ def main() -> int:
             print(f"Base environment was not created at {base_venv}", file=sys.stderr)
             return 2
 
-    metadata_path = write_metadata(identifier, instances)
+    requirements = ROOT / ".riot" / "requirements" / f"{first.short_hash}.txt"
+    if not requirements.is_file():
+        print(f"Missing requirements lock: {requirements}", file=sys.stderr)
+        return 2
 
-    command_args = sys.argv[2:]
+    metadata_path = write_metadata(identifier, instances)
     command = [
-        "uvx",
-        "--from",
-        "hatch==1.17.1",
-        "hatch",
+        "uv",
         "run",
-        f"testenv.py{first.py._hint}:python",
-        "scripts/hatch_test_env.py",
+        "--no-project",
+        "--python",
+        str(base_venv / "bin" / "python"),
+        "--with-requirements",
+        str(requirements),
+        "--",
+        "python",
+        "scripts/uv_test_env.py",
         str(metadata_path),
-        *command_args,
+        *sys.argv[2:],
     ]
-    env = os.environ.copy()
-    env["HATCH_ENV_TYPE_VIRTUAL_PATH"] = str(base_venv)
-    return subprocess.run(command, cwd=ROOT, env=env).returncode
+    return subprocess.run(command, cwd=ROOT, env=os.environ.copy()).returncode
 
 
 if __name__ == "__main__":

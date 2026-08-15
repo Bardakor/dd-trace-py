@@ -42,7 +42,7 @@ build_base_venvs:
     echo "Running smoke tests"
     smoke_hash="$(riot list --hash-only --python="$PYTHON_VERSION" '^smoke_test$')"
     test -n "$smoke_hash"
-    ./scripts/run-hatch-test-env "$smoke_hash"
+    ./scripts/run-uv-test-env "$smoke_hash"
     sccache --show-stats || true
   artifacts:
     name: venv_$PYTHON_VERSION

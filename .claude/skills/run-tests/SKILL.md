@@ -29,7 +29,7 @@ Use this skill when you have:
 ## Key Principles
 
 1. **Always use the run-tests skill** when testing code changes - it's optimized for intelligent suite discovery
-2. **Never run pytest directly** - bypasses the project's Hatch, uv, and service setup; use `scripts/run-tests`
+2. **Never run pytest directly** - bypasses the project's uv and service setup; use `scripts/run-tests`
 3. **Minimal venvs for iteration** - run 1-2 venvs initially, expand only if needed
 4. **Use `--dry-run` first** - see what would run before executing
 5. **Follow official docs** - `docs/contributing-testing.rst` is the source of truth for testing procedures
@@ -96,7 +96,7 @@ When you modify:
 
 ### Step 4: Execute Selected Venvs
 
-I'll run the selected environments. Hatch reuses the Python-specific ddtrace build and uv reuses pinned dependency caches automatically:
+I'll run the selected environments. uv layers pinned dependencies over the shared Python-specific ddtrace build and reuses its package cache automatically:
 
 ```bash
 scripts/run-tests --venv <hash1> --venv <hash2>
@@ -260,7 +260,7 @@ scripts/run-tests --venv flask_py311 -- -vv -k test_view_called_twice
 
 ### DO ✅
 
-- **Reuse the same hash**: Hatch and uv will reuse its built Python and dependency cache.
+- **Reuse the same hash**: uv will reuse its built Python and dependency cache.
 - **Start small**: Run 1 venv first, expand only if needed
 - **Be specific**: Use pytest `-k` filter when re-running failures
 - **Check git**: Verify you're testing the right files with `git status`
@@ -285,7 +285,7 @@ scripts/run-tests --venv flask_py311 -- -vv -k test_view_called_twice
   - Where to put tests in the repository
   - Prerequisites (Docker, uv)
   - Complete `scripts/run-tests` usage examples
-  - Hatch execution and transitional environment management details
+  - uv execution and transitional environment management details
   - Running specific test files and functions
   - Test debugging strategies
 
@@ -329,7 +329,7 @@ docker compose down
 
 The `scripts/run-tests` system:
 - Maps source files to test suites using patterns in `tests/suitespec.yml`
-- Uses Hatch to execute each Python/package combination and uv to install pinned dependencies
+- Uses uv to install pinned dependencies and execute each Python/package combination
 - Reuses one ddtrace build per Python across dependency combinations
 - Docker services are managed per suite lifecycle
 - Use `-- <test args>` to forward options or paths to the selected test command.

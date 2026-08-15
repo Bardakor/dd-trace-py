@@ -597,8 +597,8 @@ class TestRunner:
             # Execute each unique environment hash in this suite.
             suite_success = True
 
-            # Build ddtrace once per Python, then let Hatch reuse that base for every lock.
-            lock_path = self.root / ".hatch" / ".build.lock"
+            # Build ddtrace once per Python, then let uv reuse that base for every lock.
+            lock_path = self.root / ".cache" / "uv-test-build.lock"
             lock_path.parent.mkdir(parents=True, exist_ok=True)
 
             python_versions = [
@@ -656,7 +656,7 @@ class TestRunner:
 
                 cmd = [
                     str(self.root / "scripts" / "ddtest"),
-                    "./scripts/run-hatch-test-env",
+                    "./scripts/run-uv-test-env",
                     venv.hash,
                     "--",
                     *command_args,

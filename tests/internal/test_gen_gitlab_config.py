@@ -72,15 +72,15 @@ def test_jobspec_sanitizes_nightly_build_before_script(gen_gitlab_config_mod, mo
     assert "$DD_API_KEY" not in config
 
 
-def test_jobspec_uses_hatch_test_template(gen_gitlab_config_mod):
+def test_jobspec_uses_uv_test_template(gen_gitlab_config_mod):
     with mock.patch.object(gen_gitlab_config_mod.subprocess, "check_output", return_value=b"pip-key\n"):
         config = str(gen_gitlab_config_mod.JobSpec(name="suite", stage="core"))
 
-    assert "  extends: .test_base_hatch" in config
+    assert "  extends: .test_base_uv" in config
     assert "  UV_CACHE_DIR: ${CI_PROJECT_DIR}/.cache/uv" in config
 
 
-def test_jobspec_waits_for_services_through_hatch(gen_gitlab_config_mod):
+def test_jobspec_waits_for_services_through_uv(gen_gitlab_config_mod):
     spec = gen_gitlab_config_mod.JobSpec(
         name="suite",
         stage="core",
@@ -92,7 +92,7 @@ def test_jobspec_waits_for_services_through_hatch(gen_gitlab_config_mod):
 
     assert '          - PYTHON_VERSION: "3.9"' in config
     assert '          - PYTHON_VERSION: "3.12"' in config
-    assert "    - ./scripts/run-hatch-test-env wait -- redis" in config
+    assert "    - ./scripts/run-uv-test-env wait -- redis" in config
 
 
 def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_mod, monkeypatch, tmp_path):
