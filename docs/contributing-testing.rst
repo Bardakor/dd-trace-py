@@ -113,6 +113,12 @@ Anatomy of a uv Test Command
 * ``-vv``: Be loud about which tests are being run
 * ``-k 'test1 or test2'``: Test selection by `keyword expression <https://docs.pytest.org/en/7.1.x/how-to/usage.html#specifying-which-tests-to-run>`_
 
+How is CI test performance tracked?
+-----------------------------------
+
+The ranked bottleneck register, isolation rules, measurements, and planned experiments live in
+:ref:`ci-test-performance`. Update it when a CI change materially affects wall time, runner cost, or test isolation.
+
 Why are my tests failing with 404 errors?
 -----------------------------------------
 

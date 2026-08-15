@@ -226,6 +226,7 @@ in its output. A Datadog maintainer must add the key to the registry before the 
     contributing-design
     contributing-integrations
     contributing-testing
+    contributing-ci-performance
     contributing-fuzzing
     contributing-tracing
     contributing-release
