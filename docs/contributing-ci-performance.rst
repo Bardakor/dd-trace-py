@@ -457,6 +457,12 @@ The next checkpoint separates smoke jobs from base artifact producers. This make
 status, allows successful base artifacts to unblock their consumers, and keeps smoke coverage as an independent
 required check instead of commenting it out.
 
+That checkpoint confirmed the producer itself fails on all six versions; no smoke job starts. Riot 0.22 created its
+base with ``virtualenv`` and ran ``pip install -e .``. The uv migration had changed both venv creation and the native
+editable build frontend at once. The next iteration keeps uv venv creation and all test dependency management but
+restores pip only for the editable ddtrace build, isolating the remaining behavior change while retaining direct uv
+execution.
+
 Next sequence
 -------------
 

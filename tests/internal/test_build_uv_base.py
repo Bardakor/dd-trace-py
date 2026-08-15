@@ -49,6 +49,16 @@ def test_build_creates_and_reuses_a_fingerprinted_base(build_uv_base_mod, monkey
     assert build_uv_base_mod.build("3.12") == destination
     assert mocked_run.call_count == 2
     assert mocked_run.call_args_list[0].args[0][3] == "/python/3.12"
+    assert mocked_run.call_args_list[1].args[0] == [
+        str(destination / "bin" / "python"),
+        "-m",
+        "pip",
+        "--disable-pip-version-check",
+        "install",
+        "--force-reinstall",
+        "--editable",
+        str(root),
+    ]
     assert (destination / ".dd-uv-base").read_text() == "input-digest\n"
 
     mocked_run.reset_mock()

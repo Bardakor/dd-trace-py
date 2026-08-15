@@ -307,7 +307,7 @@ How the Build Works
 .. code-block:: text
 
     scripts/build-uv-base <python>
-      └─ uv pip install --editable .
+      └─ python -m pip install --editable .
            ├─ build_py  → LibraryDownloader.run()
            │    ├─ CleanLibraries.remove_artifacts()  ← SKIPPED when INCREMENTAL=1
            │    └─ LibDDWafDownload.run()
@@ -319,6 +319,10 @@ How the Build Works
                      ├─ CMakeExtension  → build_extension_cmake()
                      │    └─ skip if .so newer than sources (INCREMENTAL check)
                      └─ Cython/C ext   → skip if .so newer than .pyx sources
+
+uv creates and seeds the shared base. The editable native project build intentionally uses pip,
+matching the previously proven build path. uv remains responsible for compiling locks, installing
+test dependencies, caching dependency prefixes, and launching commands.
 
 ``ext_cache.py`` flow (CI and local testing):
 

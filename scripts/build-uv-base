@@ -23,7 +23,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_ROOT = ROOT / ".test-env" / "uv-bases"
-BUILD_SCHEMA = "uv-test-base-v1"
+BUILD_SCHEMA = "uv-test-base-v2-pip-editable"
 BUILD_ENVIRONMENT = (
     "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
     "CARGO_PROFILE_RELEASE_LTO",
@@ -98,7 +98,16 @@ def build(python: str) -> Path:
             check=True,
         )
         subprocess.run(
-            [str(uv), "pip", "install", "--python", str(base_python), "--reinstall", "--editable", str(ROOT)],
+            [
+                str(base_python),
+                "-m",
+                "pip",
+                "--disable-pip-version-check",
+                "install",
+                "--force-reinstall",
+                "--editable",
+                str(ROOT),
+            ],
             cwd=ROOT,
             check=True,
         )
