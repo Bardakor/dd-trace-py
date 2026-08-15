@@ -17,6 +17,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shlex
 import sys
 from typing import Any
 from typing import Iterable
@@ -24,6 +25,8 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONTRACT = ROOT / "tests" / "environments" / "riot-contract.json"
+DEFAULT_CORE = ROOT / "tests" / "environments" / "core.json"
+DEFAULT_INVENTORY = ROOT / "tests" / "environments" / "inventory.json"
 RIOTFILE = ROOT / "riotfile.py"
 SCHEMA_VERSION = 1
 
@@ -245,6 +248,73 @@ def compare_contract(expected: dict[str, Any], actual: dict[str, Any]) -> list[s
     return differences
 
 
+def _requirement_name(requirement: str) -> str:
+    match = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", requirement)
+    if match is None:
+        raise ValueError(f"Cannot determine package name from {requirement!r}")
+    return re.sub(r"[-_.]+", "-", match.group()).lower()
+
+
+def build_inventory(contract: dict[str, Any], core: dict[str, Any]) -> dict[str, Any]:
+    """Convert the resolved contract into a flat uv-owned inventory."""
+    core_dependencies = core["dependencies"]
+    core_names = [dependency["name"] for dependency in core_dependencies]
+    core_requirements = [dependency["requirement"] for dependency in core_dependencies]
+    if core_names != [_requirement_name(requirement) for requirement in core_requirements]:
+        raise ValueError("Core dependency names must match their requirements")
+
+    dependency_profiles = {}
+    for profile_id, package_string in contract["definitions"]["dependencies"].items():
+        requirements = shlex.split(package_string)
+        if [_requirement_name(requirement) for requirement in requirements[: len(core_names)]] != core_names:
+            raise ValueError(f"Dependency profile {profile_id} does not start with the core dependencies")
+        overrides = {
+            name: requirement
+            for name, base, requirement in zip(core_names, core_requirements, requirements)
+            if requirement != base
+        }
+        dependency_profiles[profile_id] = {
+            "add": requirements[len(core_names) :],
+            "override": overrides,
+        }
+
+    base_environment = core["environment"]
+    environment_profiles = {}
+    for profile_id, environment in contract["definitions"]["environments"].items():
+        missing = sorted(set(base_environment) - set(environment))
+        if missing:
+            raise ValueError(f"Environment profile {profile_id} is missing core keys: {', '.join(missing)}")
+        environment_profiles[profile_id] = {
+            key: value for key, value in environment.items() if base_environment.get(key) != value
+        }
+
+    instances = [
+        {
+            "command": instance["command"],
+            "dependencies": instance["dependencies"],
+            "environment": instance["environment"],
+            "id": instance["short_hash"],
+            "identity": instance["identity"],
+            "legacy_long_id": instance["long_hash"],
+            "name": instance["name"],
+            "python": instance["python"],
+        }
+        for instance in contract["instances"]
+    ]
+    inventory = {
+        "definitions": {
+            "commands": contract["definitions"]["commands"],
+            "dependency_profiles": dependency_profiles,
+            "environment_profiles": environment_profiles,
+        },
+        "instances": instances,
+        "schema_version": SCHEMA_VERSION,
+        "source_contract_digest": contract["contract_digest"],
+    }
+    inventory["inventory_digest"] = hashlib.sha256(_canonical_bytes(inventory)).hexdigest()
+    return inventory
+
+
 def _write_contract(path: Path, contract: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n")
@@ -256,6 +326,14 @@ def main() -> int:
     for action in ("check", "snapshot"):
         command = subparsers.add_parser(action)
         command.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    export = subparsers.add_parser("export")
+    export.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    export.add_argument("--core", type=Path, default=DEFAULT_CORE)
+    export.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
+    check_inventory = subparsers.add_parser("check-inventory")
+    check_inventory.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    check_inventory.add_argument("--core", type=Path, default=DEFAULT_CORE)
+    check_inventory.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     audit = subparsers.add_parser("audit")
     audit.add_argument("--details", action="store_true")
     audit.add_argument("--max-anonymous-containers", type=int)
@@ -277,6 +355,21 @@ def main() -> int:
             and runtime["anonymous_container_count"] > args.max_anonymous_containers
         ):
             return 1
+        return 0
+
+    if args.action in ("export", "check-inventory"):
+        contract = json.loads(args.contract.read_text())
+        core = json.loads(args.core.read_text())
+        expected = build_inventory(contract, core)
+        if args.action == "export":
+            _write_contract(args.inventory, expected)
+            print(f"Wrote {len(expected['instances'])} uv environments to {args.inventory}")
+            return 0
+        actual = json.loads(args.inventory.read_text())
+        if actual != expected:
+            print("uv environment inventory is out of date; run scripts/test_env_contract.py export", file=sys.stderr)
+            return 1
+        print(f"uv environment inventory matches {args.contract}")
         return 0
 
     actual = current_contract()

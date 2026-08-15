@@ -1,0 +1,111 @@
+#!/usr/bin/env scripts/uv-run-script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "uv==0.12.5",
+# ]
+# ///
+"""Build one editable ddtrace environment for a Python interpreter."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+from importlib.metadata import version
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE_ROOT = ROOT / ".test-env" / "uv-bases"
+BUILD_SCHEMA = "uv-test-base-v1"
+BUILD_ENVIRONMENT = (
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
+    "CARGO_PROFILE_RELEASE_LTO",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL",
+    "DD_FAST_BUILD",
+    "DD_PROFILING_MEMALLOC_ASSERT_ON_REENTRY",
+    "DD_PROFILING_NATIVE_TESTS",
+    "DD_USE_SCCACHE",
+)
+BUILD_SUFFIXES = {".c", ".cc", ".cpp", ".h", ".hh", ".hpp", ".pxd", ".pyx", ".rs"}
+BUILD_FILES = {"Cargo.lock", "Cargo.toml", "CMakeLists.txt", "pyproject.toml", "setup.cfg", "setup.py"}
+
+
+def base_path(python: str) -> Path:
+    return BASE_ROOT / f"py{python}"
+
+
+def _tracked_build_inputs() -> list[Path]:
+    result = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    paths = []
+    for raw_path in result.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        path = Path(os.fsdecode(raw_path))
+        if path.name in BUILD_FILES or path.suffix in BUILD_SUFFIXES:
+            paths.append(path)
+    return paths
+
+
+def build_digest(python: str, uv_version: str) -> str:
+    digest = hashlib.sha256(BUILD_SCHEMA.encode())
+    digest.update(python.encode())
+    digest.update(uv_version.encode())
+    digest.update(json.dumps({name: os.environ.get(name) for name in BUILD_ENVIRONMENT}, sort_keys=True).encode())
+    for path in _tracked_build_inputs():
+        digest.update(os.fsencode(path))
+        digest.update((ROOT / path).read_bytes())
+    return digest.hexdigest()
+
+
+def build(python: str) -> Path:
+    uv = Path(sys.executable).with_name("uv")
+    if not uv.is_file():
+        raise RuntimeError(f"Pinned uv executable was not installed at {uv}")
+
+    destination = base_path(python)
+    marker = destination / ".dd-uv-base"
+    expected = build_digest(python, version("uv"))
+    lock_path = BASE_ROOT / f".{python}.lock"
+    BASE_ROOT.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        base_python = destination / "bin" / "python"
+        if marker.is_file() and marker.read_text().strip() == expected and base_python.is_file():
+            return destination
+
+        subprocess.run(
+            [str(uv), "venv", "--python", python, "--seed", "--clear", str(destination)],
+            cwd=ROOT,
+            check=True,
+        )
+        subprocess.run(
+            [str(uv), "pip", "install", "--python", str(base_python), "--reinstall", "--editable", str(ROOT)],
+            cwd=ROOT,
+            check=True,
+        )
+        marker.write_text(expected + "\n")
+    return destination
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("python")
+    args = parser.parse_args()
+    destination = build(args.python)
+    print(destination)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

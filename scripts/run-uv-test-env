@@ -2,12 +2,12 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "riot==0.22.0",
 #     "uv==0.12.5",
 # ]
 # ///
 from __future__ import annotations
 
+import argparse
 from importlib.metadata import version
 import json
 import os
@@ -19,46 +19,43 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# AIDEV-NOTE: Riot remains the temporary source of resolved environment metadata.
-# uv owns dependency installation and command execution during the migration.
-import riotfile  # noqa: E402
+from scripts import test_environments  # noqa: E402
 
 
-def find_instances(identifier: str):
+def find_instances(identifier: str, python: str | None = None):
     return [
         instance
-        for instance in riotfile.venv.instances()
-        if instance.command is not None
-        and (
-            instance.short_hash == identifier
-            or instance.long_hash.startswith(identifier)
-            or instance.name == identifier
-        )
+        for instance in test_environments.find(identifier)
+        if instance.command and (python is None or instance.python == python)
     ]
 
 
-def write_metadata(identifier: str, instances) -> Path:
+def base_venv(python_hint: str) -> Path:
+    return ROOT / ".test-env" / "uv-bases" / f"py{python_hint}"
+
+
+def write_metadata(identifier: str, instances, base: Path) -> Path:
     first = instances[0]
     uv = Path(sys.executable).with_name("uv")
     if not uv.is_file():
         raise RuntimeError(f"Pinned uv executable was not installed at {uv}")
     metadata = {
-        "hash": first.short_hash,
-        "python": first.py._hint,
-        "requirements": f".riot/requirements/{first.short_hash}.txt",
+        "base_digest": (base / ".dd-uv-base").read_text().strip(),
+        "hash": first.id,
+        "python": first.python,
+        "requirements": f".riot/requirements/{first.id}.txt",
         "uv": str(uv),
         "uv_version": version("uv"),
         "instances": [
             {
                 "command": instance.command,
-                "env": dict(instance.env),
-                "full_packages": instance.full_pkg_str,
-                "hash": instance.short_hash,
-                "ident": instance.ident or "",
-                "name": instance.name or "",
-                "packages": instance.pkg_str,
-                "python": instance.py._hint,
-                "python_version": instance.py.version(),
+                "env": dict(instance.variables),
+                "full_packages": " ".join(instance.requirements),
+                "hash": instance.id,
+                "ident": instance.identity,
+                "name": instance.name,
+                "packages": " ".join(instance.requirements),
+                "python": instance.python,
             }
             for instance in instances
         ],
@@ -71,53 +68,57 @@ def write_metadata(identifier: str, instances) -> Path:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print("usage: scripts/run-uv-test-env HASH [-- TEST_ARGS...]", file=sys.stderr)
-        return 2
+    separator = sys.argv.index("--") if "--" in sys.argv else len(sys.argv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--python")
+    parser.add_argument("identifier")
+    args = parser.parse_args(sys.argv[1:separator])
+    command_args = sys.argv[separator + 1 :] if separator < len(sys.argv) else []
 
-    identifier = sys.argv[1]
-    instances = find_instances(identifier)
+    identifier = args.identifier
+    instances = find_instances(identifier, args.python)
     if not instances:
         print(f"No test environment found for {identifier}", file=sys.stderr)
         return 2
 
-    python_hints = {instance.py._hint for instance in instances}
-    hashes = {instance.short_hash for instance in instances}
+    python_hints = {instance.python for instance in instances}
+    hashes = {instance.id for instance in instances}
     if len(python_hints) != 1 or len(hashes) != 1:
         print(f"Environment {identifier} is ambiguous; use its exact hash", file=sys.stderr)
         return 2
 
-    first = instances[0]
-    base_venv = Path(first.py.venv_path)
-    if not base_venv.is_dir():
+    python_hint = instances[0].python
+    base = base_venv(python_hint)
+    if not (base / "bin" / "python").is_file():
         result = subprocess.run(
-            ["riot", "-P", "-v", "generate", f"--python={first.py._hint}"],
+            [str(ROOT / "scripts" / "build-uv-base"), python_hint],
             cwd=ROOT,
         )
         if result.returncode:
             return result.returncode
-        if not base_venv.is_dir():
-            print(f"Base environment was not created at {base_venv}", file=sys.stderr)
+        if not (base / "bin" / "python").is_file():
+            print(f"Base environment was not created for Python {python_hint}", file=sys.stderr)
             return 2
 
-    requirements = ROOT / ".riot" / "requirements" / f"{first.short_hash}.txt"
+    requirements = ROOT / ".riot" / "requirements" / f"{instances[0].id}.txt"
     if not requirements.is_file():
         print(f"Missing requirements lock: {requirements}", file=sys.stderr)
         return 2
 
-    metadata_path = write_metadata(identifier, instances)
+    metadata_path = write_metadata(identifier, instances, base)
     metadata = json.loads(metadata_path.read_text())
     command = [
         metadata["uv"],
         "run",
         "--no-project",
         "--python",
-        str(base_venv / "bin" / "python"),
+        str(base / "bin" / "python"),
         "--",
         "python",
         "scripts/uv_test_env.py",
         str(metadata_path),
-        *sys.argv[2:],
+        "--",
+        *command_args,
     ]
     return subprocess.run(command, cwd=ROOT, env=os.environ.copy()).returncode
 

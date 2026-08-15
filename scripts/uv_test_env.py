@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import shlex
 import shutil
 import subprocess
@@ -28,9 +29,10 @@ def _site_packages(prefix: Path) -> Path:
     return Path(sysconfig.get_path("purelib", vars=paths))
 
 
-def _lock_digest(requirements: Path, uv_version: str) -> str:
+def _lock_digest(requirements: Path, uv_version: str, base_digest: str) -> str:
     digest = hashlib.sha256(INSTALLER_SCHEMA)
     digest.update(uv_version.encode())
+    digest.update(base_digest.encode())
     digest.update(requirements.read_bytes())
     return digest.hexdigest()
 
@@ -42,7 +44,7 @@ def prepare_dependencies(metadata: dict[str, Any]) -> Path:
 
     prefix = _dependency_prefix(metadata)
     marker = prefix / ".dd-uv-lock"
-    expected_digest = _lock_digest(requirements, metadata["uv_version"])
+    expected_digest = _lock_digest(requirements, metadata["uv_version"], metadata["base_digest"])
     if marker.is_file() and marker.read_text().strip() == expected_digest:
         return prefix
 
@@ -76,7 +78,7 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
         {
             "RIOT": "1",
             "RIOT_PYTHON_HINT": instance["python"],
-            "RIOT_PYTHON_VERSION": instance["python_version"],
+            "RIOT_PYTHON_VERSION": platform.python_version(),
             "RIOT_VENV_HASH": instance["hash"],
             "RIOT_VENV_IDENT": instance["ident"],
             "RIOT_VENV_NAME": instance["name"],

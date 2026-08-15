@@ -392,6 +392,20 @@ One anonymous leaf remains at depth three under the named ``tracer-python-optimi
 variant, not an inheritance container; moving it would remove or alter a named selection boundary. CI now rejects a
 new anonymous container and rejects any resolved-contract change unless the snapshot is reviewed explicitly.
 
+2026-08-15, uv inventory and base-build experiment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Local routing, direct execution, and CI generation now read a flat JSON inventory; none imports Riot. The inventory
+factors seven shared dependencies and 12 base variables into ``core.json``, while retaining all 1,936 instances and
+1,886 stable IDs. The dual-source guard verifies every named and suite selection during the transition.
+
+The first Python 3.12 uv editable build spent 46.65 seconds preparing ddtrace and 0.16 seconds installing it. A warm
+fingerprint check, including container startup, took 1.97 seconds. These local numbers are not directly comparable
+to the earlier 243-to-340-second CI jobs because native outputs and compiler caches were warm. The next pushed CI run
+must measure a clean producer before treating the difference as a pipeline win. A dependency-prefix cache bug found
+during this experiment was fixed by including the base fingerprint; otherwise console-script shebangs kept selecting
+the former Riot interpreter.
+
 Next sequence
 -------------
 

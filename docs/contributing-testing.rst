@@ -63,8 +63,14 @@ You can access it by running
     $ scripts/ddtest
 
 uv installs each environment's pinned dependencies as a layer over a shared, editable ddtrace
-build, then launches the test runner with that layer active. The resolved environment
-definitions and locks still come from Riot during the migration.
+build, then launches the test runner with that layer active. Local routing and generated CI read
+``tests/environments/inventory.json`` without importing Riot. During the dual-source migration,
+``scripts/test_env_contract.py`` proves that this flat inventory still resolves exactly like ``riotfile.py``.
+
+``tests/environments/core.json`` is the small, maintained source for supported Python requests,
+dependencies shared by every test environment, base variables, and conditional nightly variables.
+The larger inventory stores only core dependency overrides, additions, environment deltas, commands,
+and flat instances. Named environment boundaries and stable seven-character IDs are preserved.
 
 You can run a known environment hash or lint checks in the test runner container with commands
 like these:
@@ -173,7 +179,7 @@ If you encounter build failures, CMake errors, or stale native extension issues 
 - **Using scripts/ddtest:** The project is mounted from the host, so run ``scripts/clean`` on the host first.
   The container sees the cleaned project on the next run.
 
-Then run the selected environment again. ``scripts/run-tests`` rebuilds the shared ddtrace base before uv starts the test command:
+Then run the selected environment again. ``scripts/run-tests`` verifies the fingerprinted shared ddtrace base before uv starts the test command:
 
 .. code-block:: bash
 

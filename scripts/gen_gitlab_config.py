@@ -3,7 +3,6 @@
 # /// script
 # requires-python = ">=3.9"
 # dependencies = [
-#     "riot>=0.22.0",
 #     "ruamel.yaml>=0.17.21",
 #     "lxml>=4.9.0",
 # ]
@@ -192,7 +191,7 @@ ALL_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, SuiteVenvInfo]:
     """Collect venv count and Python versions for multiple suites in a single pass.
 
-    Iterates riotfile.venv.instances() once and matches each instance against all
+    Iterates the uv environment inventory once and matches each instance against all
     suite patterns simultaneously, which is much more efficient than per-suite iteration.
 
     Args:
@@ -201,8 +200,7 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
     Returns:
         mapping of suite name -> SuiteVenvInfo for suites that have matching venvs
     """
-    # Importing will load/evaluate the whole riotfile.py
-    import riotfile
+    import test_environments
 
     compiled: dict[str, re.Pattern] = {}
     for suite, pattern in suite_patterns.items():
@@ -215,14 +213,14 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
     python_versions: dict[str, set] = {s: set() for s in compiled}
     suites_by_venv_hash: dict[str, set[str]] = defaultdict(set)
 
-    for inst in riotfile.venv.instances():  # type: ignore[attr-defined]
+    for inst in test_environments.environments():
         if not inst.name:
             continue
-        hint = inst.py._hint  # type: ignore[attr-defined]
+        hint = inst.python
         for suite, regex in compiled.items():
-            if inst.matches_pattern(regex):  # type: ignore[attr-defined]
-                venv_hashes[suite].add(inst.short_hash)  # type: ignore[attr-defined]
-                suites_by_venv_hash[inst.short_hash].add(suite)  # type: ignore[attr-defined]
+            if inst.matches(regex):
+                venv_hashes[suite].add(inst.id)
+                suites_by_venv_hash[inst.id].add(suite)
                 # Only collect properly versioned hints (e.g. "3.10"), skip bare "3"
                 if re.match(r"^3\.\d+$", hint):
                     python_versions[suite].add(hint)
@@ -244,7 +242,7 @@ def collect_all_suite_venv_info(suite_patterns: dict[str, str]) -> dict[str, Sui
                 venv_hashes=venv_hashes[suite],
             )
         else:
-            LOGGER.warning("No riot venvs found for suite %s with pattern %s", suite, suite_patterns[suite])
+            LOGGER.warning("No test environments found for suite %s with pattern %s", suite, suite_patterns[suite])
     return result
 
 
@@ -672,12 +670,14 @@ def gen_pre_checks() -> None:
     check(
         name="Check resolved test environments",
         command=(
-            "scripts/test_env_contract.py check && scripts/test_env_contract.py audit --max-anonymous-containers 0"
+            "scripts/test_env_contract.py check && scripts/test_env_contract.py check-inventory && "
+            "scripts/test_env_contract.py audit --max-anonymous-containers 0"
         ),
         paths={
             "riotfile.py",
             "scripts/test_env_contract.py",
-            "tests/environments/riot-contract.json",
+            "scripts/test_environments.py",
+            "tests/environments/*.json",
             "**suitespec.yml",
         },
     )

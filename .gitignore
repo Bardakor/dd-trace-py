@@ -176,6 +176,9 @@ CLAUDE.local.md
 # container binaries with host-native (e.g. macOS) venvs on the shared mount.
 .riot/docker/
 
+# uv-owned editable test bases and generated metadata.
+.test-env/
+
 # Benchmarks
 artifacts/
 

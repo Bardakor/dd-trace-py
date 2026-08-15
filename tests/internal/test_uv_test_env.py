@@ -61,6 +61,7 @@ def test_prepare_dependencies_uses_uv_and_reuses_matching_prefix(uv_test_env_mod
     run = mock.Mock()
     monkeypatch.setattr(uv_test_env_mod.subprocess, "run", run)
     metadata = {
+        "base_digest": "base-v1",
         "hash": "abc1234",
         "python": "3.12",
         "requirements": "requirements.txt",

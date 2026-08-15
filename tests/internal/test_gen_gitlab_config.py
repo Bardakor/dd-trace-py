@@ -105,22 +105,24 @@ def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_
     assert 'echo "NIGHTLY_BUILD: false"' in config
     assert 'echo "UNPIN_DEPENDENCIES: false"' in config
     assert 'if [[ "false" == "true" ]]' in config
+    assert './scripts/build-uv-base "$PYTHON_VERSION"' in config
+    assert "riot " not in config
     assert "$(curl" not in config
     assert "$DD_API_KEY" not in config
 
 
 def test_collect_all_suite_venv_info_rejects_overlapping_suite_membership(gen_gitlab_config_mod):
-    class FakeInstance:
+    class FakeEnvironment:
         name = "tracer-uwsgi"
-        short_hash = "abc1234"
-        py = types.SimpleNamespace(_hint="3.12")
+        id = "abc1234"
+        python = "3.12"
 
-        def matches_pattern(self, pattern):
+        def matches(self, pattern):
             return pattern.search(self.name) is not None
 
-    riotfile = types.SimpleNamespace(venv=types.SimpleNamespace(instances=lambda: [FakeInstance()]))
+    test_environments = types.SimpleNamespace(environments=lambda: [FakeEnvironment()])
 
-    with mock.patch.dict(sys.modules, {"riotfile": riotfile}):
+    with mock.patch.dict(sys.modules, {"test_environments": test_environments}):
         with pytest.raises(ValueError, match="abc1234: tracer, tracer-uwsgi"):
             gen_gitlab_config_mod.collect_all_suite_venv_info(
                 {

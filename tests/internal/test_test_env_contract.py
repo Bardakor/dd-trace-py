@@ -113,3 +113,24 @@ def test_is_venv_call_ignores_other_calls(contract_mod):
     call = ast.parse("Other()").body[0].value
 
     assert not contract_mod._is_venv_call(call)
+
+
+def test_build_inventory_factors_core_dependencies_and_environment(contract_mod):
+    contract = contract_mod.build_contract([FakeInstance("tracer", "abc1234")], {})
+    dependency_id = contract["instances"][0]["dependencies"]
+    environment_id = contract["instances"][0]["environment"]
+    core = {
+        "dependencies": [
+            {"name": "pytest", "requirement": "pytest"},
+        ],
+        "environment": {"SHARED": "1"},
+    }
+
+    inventory = contract_mod.build_inventory(contract, core)
+
+    assert inventory["definitions"]["dependency_profiles"][dependency_id] == {
+        "add": [],
+        "override": {},
+    }
+    assert inventory["definitions"]["environment_profiles"][environment_id] == {}
+    assert inventory["instances"][0]["id"] == "abc1234"

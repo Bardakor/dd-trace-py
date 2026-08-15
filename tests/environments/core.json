@@ -1,0 +1,66 @@
+{
+  "conditional_environment": [
+    {
+      "set": {
+        "DD_CIVISIBILITY_CODE_COVERAGE_REPORT_UPLOAD_ENABLED": "1"
+      },
+      "when": {
+        "NIGHTLY_BUILD": "true"
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "mock",
+      "requirement": "mock"
+    },
+    {
+      "name": "pytest",
+      "requirement": "pytest"
+    },
+    {
+      "name": "pytest-mock",
+      "requirement": "pytest-mock"
+    },
+    {
+      "name": "coverage",
+      "requirement": "coverage"
+    },
+    {
+      "name": "pytest-cov",
+      "requirement": "pytest-cov"
+    },
+    {
+      "name": "opentracing",
+      "requirement": "opentracing"
+    },
+    {
+      "name": "hypothesis",
+      "requirement": "hypothesis<6.45.1"
+    }
+  ],
+  "environment": {
+    "CARGO_BUILD_JOBS": "12",
+    "CMAKE_BUILD_PARALLEL_LEVEL": "12",
+    "DD_CIVISIBILITY_BACKEND_API_TIMEOUT_MILLIS": "2000",
+    "DD_CODE_ORIGIN_FOR_SPANS_ENABLED": "false",
+    "DD_INJECTION_ENABLED": "1",
+    "DD_INJECT_FORCE": "1",
+    "DD_PATCH_MODULES": "unittest:false",
+    "DD_REMOTE_CONFIGURATION_ENABLED": "false",
+    "DD_TESTING_RAISE": "1",
+    "DD_TRACE_COMPUTE_STATS": "false",
+    "_DD_CIVISIBILITY_OUT_OF_SESSION_RETRIES_ENABLED": "1",
+    "_DD_CIVISIBILITY_USE_CI_CONTEXT_PROVIDER": "1"
+  },
+  "schema_version": 1,
+  "supported_python": [
+    "3",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14"
+  ]
+}
