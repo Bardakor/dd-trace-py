@@ -86,9 +86,10 @@ def command_environment(instance: dict[str, Any], prefix: Path) -> dict[str, str
         }
     )
     current_pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        os.pathsep.join((str(BOOTSTRAP_PATH), current_pythonpath)) if current_pythonpath else str(BOOTSTRAP_PATH)
-    )
+    pythonpath = [str(BOOTSTRAP_PATH), str(ROOT)]
+    if current_pythonpath:
+        pythonpath.append(current_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
     env["PATH"] = os.pathsep.join((str(prefix / "bin"), str(Path(sys.executable).parent), env.get("PATH", "")))
     return env
 

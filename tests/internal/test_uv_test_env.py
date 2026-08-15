@@ -100,6 +100,7 @@ def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch,
     bootstrap = tmp_path / "bootstrap"
     prefix = tmp_path / "prefix"
     monkeypatch.setattr(uv_test_env_mod, "BOOTSTRAP_PATH", bootstrap)
+    monkeypatch.setattr(uv_test_env_mod, "ROOT", tmp_path)
     monkeypatch.setattr(uv_test_env_mod.os, "environ", {"PATH": "/bin", "PYTHONPATH": "existing"})
 
     env = uv_test_env_mod.command_environment(_instance(), prefix)
@@ -109,7 +110,7 @@ def test_command_environment_exposes_test_metadata(uv_test_env_mod, monkeypatch,
     assert env["DD_TEST_ENV_ID"] == "abc1234"
     assert env["VIRTUAL_ENV"] == sys.prefix
     assert env["DD_TEST_SITE_PACKAGES"] == str(uv_test_env_mod._site_packages(prefix))
-    assert env["PYTHONPATH"] == f"{bootstrap}{uv_test_env_mod.os.pathsep}existing"
+    assert env["PYTHONPATH"] == uv_test_env_mod.os.pathsep.join((str(bootstrap), str(tmp_path), "existing"))
     assert env["PATH"].startswith(f"{prefix / 'bin'}{uv_test_env_mod.os.pathsep}")
 
 
