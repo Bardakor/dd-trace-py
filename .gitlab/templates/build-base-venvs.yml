@@ -39,8 +39,6 @@ build_base_venvs:
     fi
     ./scripts/build-uv-base "$PYTHON_VERSION"
     ".test-env/uv-bases/py${{PYTHON_VERSION}}/bin/python" -m pip freeze
-    echo "Running smoke tests"
-    ./scripts/run-uv-test-env --python "$PYTHON_VERSION" smoke_test
     sccache --show-stats || true
   artifacts:
     name: venv_$PYTHON_VERSION

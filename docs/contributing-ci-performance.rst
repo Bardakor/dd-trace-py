@@ -447,6 +447,16 @@ CI: setuptools tried to fetch ``patchelf`` through pip, but uv script environmen
 same conditional ``patchelf`` dependency as the project build configuration fixed the command. The clean restore
 path now completes without recreating the nested venv.
 
+Commit ``e6ac6c2b78`` confirmed that the sharded inventory passes the real file-size gate and configuration generation
+passes. All six combined base-build and smoke jobs still failed, after roughly two to six minutes depending on the
+Python version. A disposable cold checkout passed extension restore, base build, and Python 3.12 smoke locally with
+the CI build variables. GitLab traces and the pinned internal testrunner image were unreachable without AppGate, so
+the failure phase could not be read directly.
+
+The next checkpoint separates smoke jobs from base artifact producers. This makes the failing phase visible in job
+status, allows successful base artifacts to unblock their consumers, and keeps smoke coverage as an independent
+required check instead of commenting it out.
+
 Next sequence
 -------------
 

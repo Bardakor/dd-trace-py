@@ -489,7 +489,7 @@ def _gen_tests(suites: dict, required_suites: list[str]) -> None:
     TESTS_GEN.write_text((GITLAB / "tests.yml").read_text())
 
     # Collect stages from suite configurations
-    stages = {"setup"}  # setup is always needed
+    stages = {"setup", "smoke"}
     for suite_name, suite_config in suites.items():
         # Extract stage from suite name prefix if present
         suite_parts = suite_name.split("::")[-2:]
@@ -504,8 +504,8 @@ def _gen_tests(suites: dict, required_suites: list[str]) -> None:
         suite_config["_stage"] = stage
         suite_config["_clean_name"] = clean_name
 
-    # Sort stages: setup first, then alphabetically
-    sorted_stages = ["setup"] + sorted(stages - {"setup"})
+    # Build and smoke stages are stable; suite stages remain alphabetical.
+    sorted_stages = ["setup", "smoke"] + sorted(stages - {"setup", "smoke"})
 
     # Update the stages in the generated file
     content = TESTS_GEN.read_text()
@@ -810,6 +810,19 @@ def gen_build_base_venvs() -> None:
                 nightly_build=_get_bool_env("NIGHTLY_BUILD"),
             )
         )
+        for python_version in py_versions:
+            job_suffix = python_version.replace(".", "_")
+            print(f"base_smoke_test_py{job_suffix}:", file=f)
+            print("  extends: .testrunner", file=f)
+            print("  stage: smoke", file=f)
+            print("  needs:", file=f)
+            print("    - job: build_base_venvs", file=f)
+            print("      artifacts: true", file=f)
+            print("      parallel:", file=f)
+            print("        matrix:", file=f)
+            print(f'          - PYTHON_VERSION: "{python_version}"', file=f)
+            print("  script:", file=f)
+            print(f"    - ./scripts/run-uv-test-env --python {python_version} smoke_test", file=f)
 
 
 # -----------------------------------------------------------------------------

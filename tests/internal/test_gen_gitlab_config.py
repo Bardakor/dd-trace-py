@@ -106,6 +106,9 @@ def test_build_base_venvs_template_gets_sanitized_bool_values(gen_gitlab_config_
     assert 'echo "UNPIN_DEPENDENCIES: false"' in config
     assert 'if [[ "false" == "true" ]]' in config
     assert './scripts/build-uv-base "$PYTHON_VERSION"' in config
+    assert "base_smoke_test_py3_11:" in config
+    assert "    - ./scripts/run-uv-test-env --python 3.11 smoke_test" in config
+    assert '          - PYTHON_VERSION: "3.11"' in config
     assert "$(curl" not in config
     assert "$DD_API_KEY" not in config
 
