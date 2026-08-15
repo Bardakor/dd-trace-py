@@ -851,6 +851,7 @@ Examples:
         venvs_with_suite = []
 
         for venv in selected_venvs:
+            matched_suite = False
             # Try to find which suite this venv belongs to by pattern matching
             for suite_name, suite_config in all_suites.items():
                 pattern = suite_config.get("pattern", suite_name)
@@ -866,9 +867,12 @@ Examples:
                         if suite_name not in matching_suites:
                             matching_suites[suite_name] = suite_config.copy()
                             matching_suites[suite_name]["matched_files"] = []
+                        matched_suite = True
                         break
                 except Exception:
                     continue
+            if not matched_suite:
+                venvs_with_suite.append(venv._replace(suite_name="direct"))
 
         if not matching_suites:
             print("⚠️  Could not determine suite information for venvs, running without service management")

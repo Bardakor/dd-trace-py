@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import sys
 from types import ModuleType
+from unittest import mock
 
 import pytest
 
@@ -30,3 +31,17 @@ def test_noninteractive_selection_explains_how_to_select_an_environment(run_test
 
     with pytest.raises(SystemExit, match=r"--venv <id>"):
         runner._interactive_select(["first", "second"], "suites")
+
+
+def test_direct_environment_without_suite_is_executed(run_tests_mod, monkeypatch):
+    environment = run_tests_mod.EnvironmentChoice(1, "abc1234", "smoke_test", "3.12", "pytest")
+    runner = mock.Mock()
+    runner.get_venvs_by_hash_direct.return_value = [environment]
+    runner.get_test_environments.return_value = []
+    runner.run_tests.return_value = True
+    monkeypatch.setattr(run_tests_mod, "TestRunner", lambda: runner)
+    monkeypatch.setattr(run_tests_mod, "get_suites", lambda: {})
+    monkeypatch.setattr(run_tests_mod.sys, "argv", ["run-tests", "--venv", environment.hash])
+
+    assert run_tests_mod.main() == 0
+    assert runner.run_tests.call_args.args[0] == [environment._replace(suite_name="direct")]
