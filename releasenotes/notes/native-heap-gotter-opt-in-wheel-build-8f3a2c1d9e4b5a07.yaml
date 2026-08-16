@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    profiling: ``libdd_heap_gotter`` is now included in Linux wheels only when the
+    wheel is built with ``DD_PROFILING_NATIVE_HEAP_ENABLED=1``. Default packaging
+    builds omit the cdylib. Musllinux and Alpine sdist builds always skip the
+    gotter cargo build even when that env var is set.
